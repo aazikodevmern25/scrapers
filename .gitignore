@@ -1,0 +1,36 @@
+downloaded_files
+extra_shit
+.zed
+logs
+pdf_*
+tm
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Database and generated data directories
+scrapped_data/
+task_creator/scrapped_data/
+task_creater
+port_scraper_data
+
+# Backup files
+backups/
+*.backup
+
+# Google Drive credentials and tokens
+google_drive_credentials.json
+google_drive_token.json
+
+# Database files
+indiamart.db
+indiamart.db-wal
+indiamart.db-shm
+
+# Large data files
+product_urls.csv
+product_urls_clean.csv

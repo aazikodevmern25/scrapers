@@ -1,0 +1,60 @@
+{
+  "allFields": [
+  ],
+  "isEngine": true,
+  "recordSetKey": "RECORD_SET",
+  "sortTerms": [
+    { "sortField": "IMP_DATE", "column": "IMP_DATE", "defaultDataType": "", "sortType": "desc" }
+  ],
+  "searchExpressions": [],
+  "matchExpressions": [
+    {
+      "identifier": "SEARCH_MONTH_RANGE",
+      "alias": "MONTH",
+      "clause": "MATCH",
+      "expressionType": 300,
+      "fieldTerm": "IMP_DATE",
+      "fieldValue": [],
+      "fieldTermTypeSuffix": "",
+      "fieldValueLeft": "2025-04-01",
+      "fieldValueRight": "2025-04-17",
+      "dividedDateRange": [
+        { "leftFieldvalueHot": "2025-04-01", "rightFieldValueHot": "2025-04-16" },
+        { "leftFieldvalue": "2025-03-31", "rightFieldValue": "2025-03-31" }
+      ],
+      "dateExpression": 2,
+      "isSuggestion": 1
+    },
+    {
+      "identifier": "SEARCH_HS_CODE",
+      "alias": "HS_CODE",
+      "clause": "MATCH",
+      "expressionType": 103,
+      "fieldTerm": "HS_CODE",
+      "fieldValueLeft": "",
+      "fieldValueRight": "",
+      "fieldTermTypeSuffix": ".number",
+      "fieldValue": ["380210"],
+      "fieldValueArr": [{ "fieldValueLeft": 38021000, "fieldValueRight": 38021099 }],
+      "advanceSearchType": false
+    }
+  ],
+  "monthRange": 0,
+  "groupExpressions": [
+  ],
+  "projectionExpressions": [],
+  "tradeType": "IMPORT",
+  "countryCode": "BGD",
+  "country": "BANGLADESH",
+  "accountId": "679cb0fc28674b041b1610e6",
+  "userId": "67ad759c1491bc0157f8e026",
+  "purchasable": [
+  ],
+  "isSuggestion": 1,
+  "draw": 2,
+  "start": 0,
+  "length": 1000,
+  "resultType": "SEARCH_RECORDS",
+  "AdxToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6IkNOdjBPSTNSd3FsSEZFVm5hb01Bc2hDSDJYRSIsImtpZCI6IkNOdjBPSTNSd3FsSEZFVm5hb01Bc2hDSDJYRSJ9.eyJhdWQiOiJodHRwczovL2FwaS5rdXN0by53aW5kb3dzLm5ldCIsImlzcyI6Imh0dHBzOi8vc3RzLndpbmRvd3MubmV0LzlkM2RiODViLTU2ZTYtNDUyOC05ZjkyLTc4ODJkYTVhYmE1MS8iLCJpYXQiOjE3NDgyMzYzMzAsIm5iZiI6MTc0ODIzNjMzMCwiZXhwIjoxNzQ4MjQwOTM2LCJhY3IiOiIxIiwiYWlvIjoiQVhRQWkvOFpBQUFBWEQ1ampvd0tqL1NxNkxZTzZCdFdsaFdQWXRJa3RlSjFqbTdZM291end6ZTE5bFRKYkdXOFVmSStpRm9Jb250bjlEQWpNd0hGcnhSdFFHMFJBU2xES0lXVmRnaStpcURISjBtMXM0UE1uMFFtWmhMb1h5WWNOQ2k0c1pRcnpvb0VhV012QmtjU29qOG9ZMnNxRk0xSS9nPT0iLCJhbXIiOlsicHdkIl0sImFwcGlkIjoiMDcwMTYyODItNDRhZC00MGQ5LWE2NWUtOWM0YzVlOWRlYWFjIiwiYXBwaWRhY3IiOiIxIiwiaWR0eXAiOiJ1c2VyIiwiaXBhZGRyIjoiNC4yMTMuMjE2LjIyOCIsIm5hbWUiOiJGYWJyaWMgQWNjZXNzIiwib2lkIjoiODNmY2FlY2ItOTZmMi00MmViLThiMDgtYmFhNzg4NTkzZjI5IiwicHVpZCI6IjEwMDMyMDAzMjVGREQ0RTEiLCJyaCI6IjEuQVVvQVc3ZzluZVpXS0VXZmtuaUMybHE2VVhmcVJpY0NSMFZMZ01vOGwtYUE2TGVKQUFoS0FBLiIsInNjcCI6InVzZXJfaW1wZXJzb25hdGlvbiIsInNpZCI6IjAwNTA0YWM5LTkxYTUtODI2Yy0xYmY4LTE1NzYzNTlmYjIxMiIsInN1YiI6IjVpaDd5YkM2ZTZ4Y0QtaGNXcldKWHVjOWJ2SHZCOTdHaG1ibVRMOG8xQXMiLCJ0ZW5hbnRfY3RyeSI6IklOIiwidGVuYW50X3JlZ2lvbl9zY29wZSI6IkFTIiwidGlkIjoiOWQzZGI4NWItNTZlNi00NTI4LTlmOTItNzg4MmRhNWFiYTUxIiwidW5pcXVlX25hbWUiOiJmYWJyaWNhY2Nlc3NAYWRtaW5leGltcGVkaWEub25taWNyb3NvZnQuY29tIiwidXBuIjoiZmFicmljYWNjZXNzQGFkbWluZXhpbXBlZGlhLm9ubWljcm9zb2Z0LmNvbSIsInV0aSI6Ik5Db3FEVDZkNFVxNTZLX2NCTzVqQUEiLCJ2ZXIiOiIxLjAiLCJ4bXNfZnRkIjoiTEt1SjNpM1FVUGZmYU1XZUM2Q3B0cGkySWdTcFRCR3pDZEkwR1YwR2JYRUJZWE5wWVhOdmRYUm9aV0Z6ZEMxa2MyMXoiLCJ4bXNfaWRyZWwiOiIxIDIifQ.KVH3TBhUeWM4jazc_xdYgxrZpHqyWMwNqNteA9YbLCOJ4DoyCpnGZ89jyzkd8LZ1UHpWCEQXLTeeJULzl5cyyZVsfPxxMzJoDYQxX-6ybFaB151gTU6abvnTHxxiCSRb9fPCMvR7ORimdDhPoQVF_jSQieJWkUmKWpq-4IyRD1wSZTbYxyq4FU1d3dQ20iYckC38TIN2c6APtD-9VwgetmN9OhDu4xZitRMvGR2QXXdPpMvTkBCLe1kBcx_BDbghMahja12R2OG-OPt5U79egQmPT3WCYI3SoiITGz84nb3-_TO-kUFOUzxdUSrziIbSZiQiahHeAA8CeC2id0YrkQ",
+  "AdxTokenExpireTime": 1748236630982
+}

@@ -1,0 +1,36 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code (needed for Celery app configuration)
+COPY . .
+
+# Clear Python cache to ensure fresh code execution
+RUN find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true && \
+    find . -type f -name "*.pyc" -delete 2>/dev/null || true && \
+    find . -type f -name "*.pyo" -delete 2>/dev/null || true
+
+# Set Python path
+ENV PYTHONPATH=/app:$PYTHONPATH
+
+# Expose Flower port
+EXPOSE 5555
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:5555/ || exit 1
+
+# Run Flower with environment variable support
+CMD ["sh", "-c", "celery -A celery_app.tasks flower --port=5555 --broker=${CELERY_BROKER_URL} ${FLOWER_BASIC_AUTH:+--basic_auth=$FLOWER_BASIC_AUTH}"]

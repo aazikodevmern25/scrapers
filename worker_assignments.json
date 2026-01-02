@@ -1,0 +1,95 @@
+{
+  "workers": {
+    "macmap_worker": {
+      "queues": [
+        "macmap_tariff",
+        "macmap_trade_remedies",
+        "macmap_regulatory"
+      ],
+      "concurrency": 4,
+      "loglevel": "info",
+      "enabled": true,
+      "description": "MacMap scraper tasks"
+    },
+    "comparison_worker": {
+      "queues": [
+        "macmap_compare",
+        "macmap_competitors",
+        "macmap_products"
+      ],
+      "concurrency": 3,
+      "loglevel": "info",
+      "enabled": true,
+      "description": "MacMap comparison and product tasks"
+    },
+    "tariff_worker": {
+      "queues": [
+        "tariff_full"
+      ],
+      "concurrency": 2,
+      "loglevel": "info",
+      "enabled": true,
+      "description": "Full tariff scraping (resource intensive)"
+    },
+    "trade_worker": {
+      "queues": [
+        "indian_trade_portal",
+        "trademap"
+      ],
+      "concurrency": 3,
+      "loglevel": "info",
+      "enabled": true,
+      "description": "Trade portal and TradeMap tasks"
+    },
+    "eximpedia_worker": {
+      "queues": [
+        "eximpedia"
+      ],
+      "concurrency": 2,
+      "loglevel": "info",
+      "enabled": true,
+      "description": "Eximpedia scraping tasks"
+    },
+    "port_worker": {
+      "queues": [
+        "port_scraper"
+      ],
+      "concurrency": 1,
+      "loglevel": "info",
+      "enabled": true,
+      "description": "Port scraper (browser-based)"
+    },
+    "indiamart_worker": {
+      "queues": [
+        "indiamart"
+      ],
+      "concurrency": 3,
+      "loglevel": "info",
+      "enabled": true,
+      "description": "Indiamart scraping tasks"
+    },
+    "batch_worker": {
+      "queues": [
+        "batch_operations"
+      ],
+      "concurrency": 2,
+      "loglevel": "info",
+      "enabled": true,
+      "description": "Batch and comprehensive operations"
+    },
+    "default_worker": {
+      "queues": [
+        "default"
+      ],
+      "concurrency": 4,
+      "loglevel": "info",
+      "enabled": true,
+      "description": "Default queue for miscellaneous tasks"
+    }
+  },
+  "global_settings": {
+    "worker_max_tasks_per_child": 50,
+    "worker_prefetch_multiplier": 1,
+    "task_acks_late": true
+  }
+}

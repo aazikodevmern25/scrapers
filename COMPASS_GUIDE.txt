@@ -1,0 +1,128 @@
+========================================
+  MongoDB Compass - View Dhruval Data
+========================================
+
+DATABASE: Dhruval
+COLLECTION: trademap
+DOCUMENTS: 6
+
+========================================
+  METHOD 1: Navigate in Compass
+========================================
+
+1. Open MongoDB Compass (already open in your screenshot)
+
+2. In LEFT PANEL (CONNECTIONS section):
+   - Scroll through database list
+   - Find "Dhruval" (alphabetically around D-E section)
+   - Click the ▶ arrow next to "Dhruval"
+   - Click "trademap" collection
+   - View your 6 documents!
+
+========================================
+  METHOD 2: Use Search Filter
+========================================
+
+1. At top of left panel, find "Search connections" box
+2. Type: Dhruval
+3. Press Enter
+4. It will show only Dhruval database
+5. Expand and click "trademap"
+
+========================================
+  METHOD 3: Direct Connection
+========================================
+
+1. Click "+ Add Connection" button in Compass
+2. Enter connection string:
+   mongodb://localhost:27017/Dhruval
+3. Click "Connect"
+4. Click "trademap" collection
+
+========================================
+  CURRENT DATA (6 Documents)
+========================================
+
+🆕 NEWEST:
+1. HS 481710 - Envelopes (Import) - 22:02:32
+2. HS 481710 - Envelopes (Export) - 22:02:32
+
+PREVIOUS:
+3. HS 081350 - Nuts/Dried fruits (Import) - 21:46:17
+4. HS 081350 - Nuts/Dried fruits (Export) - 21:46:17
+5. HS 481490 - Wallpaper (Import) - 21:39:48
+6. HS 481490 - Wallpaper (Export) - 21:39:48
+
+========================================
+  VERIFY DATA VIA COMMAND LINE
+========================================
+
+Count documents:
+mongosh Dhruval --eval "db.trademap.countDocuments()"
+
+View all:
+mongosh Dhruval --eval "db.trademap.find().pretty()"
+
+View latest:
+mongosh Dhruval --eval "db.trademap.find().sort({DateCreated: -1}).limit(2).pretty()"
+
+========================================
+  COMPASS FEATURES TO USE
+========================================
+
+Once you open "trademap" collection:
+
+1. DOCUMENTS TAB:
+   - View all documents
+   - Click any document to expand and see full data
+
+2. AGGREGATIONS TAB:
+   - Run queries
+   - Filter, sort, group data
+
+3. SCHEMA TAB:
+   - See data structure
+   - Understand field types
+
+4. INDEXES TAB:
+   - View database indexes
+
+5. VALIDATION TAB:
+   - See schema validation rules
+
+========================================
+  WHAT YOU'LL SEE IN COMPASS
+========================================
+
+Each document shows:
+- _id: ObjectId
+- ScraperName: "trademap_scraper"
+- HsCode: "481710"
+- ProductName: Full product description
+- Mode: "Import" or "Export"
+- Data:
+  - Country1, Country2
+  - Yearly: {products: [...]}
+  - Quarterly: {...}
+  - Monthly: {...}
+- DateCreated: Timestamp
+- DateUpdated: Timestamp
+
+========================================
+  TROUBLESHOOTING
+========================================
+
+Q: Can't find "Dhruval" in list?
+A: It's there! Scroll more or use search box.
+
+Q: Database shows but no collections?
+A: Click the ▶ arrow to expand it.
+
+Q: Collection shows 0 documents?
+A: Refresh Compass or run command:
+   mongosh Dhruval --eval "db.trademap.countDocuments()"
+
+Q: Want to see data in terminal instead?
+A: Run: ./view_scraped_data.sh
+
+========================================

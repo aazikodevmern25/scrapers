@@ -1,0 +1,49 @@
+data-extractor/scrapers/
+│
+├── __init__.py                          # Main scrapers package
+├── README.md                            # Comprehensive documentation
+│
+├── indiamart/                           # IndiaMART Scraper Package
+│   ├── __init__.py                      # Package exports
+│   ├── indiamart_scraper.py             # Main scraper with performance optimization
+│   ├── indiamart_db.py                  # Database operations
+│   └── indiamart_category_crawler.py    # Category discovery and crawling
+│
+├── port_scraper/                        # Port Scraper Package
+│   ├── __init__.py                      # Package exports
+│   ├── port_scraper.py                  # Main scraper (Selenium-based)
+│   └── port_scraper_runner.py           # CLI runner interface
+│
+├── eximpedia/                           # Eximpedia Scraper Package
+│   ├── __init__.py                      # Package exports
+│   ├── eximpedia.py                     # Main scraper with authentication
+│   └── eximPediaTaskCreate.py           # Task creation utilities
+│
+├── trademap/                            # TradeMap Scraper Package
+│   ├── __init__.py                      # Package exports
+│   └── trademap.py                      # Main scraper with CAPTCHA handling
+│
+├── indiantradeportal/                   # Indian Trade Portal Scraper Package
+│   ├── __init__.py                      # Package exports
+│   └── indiantradeportal.py             # Main scraper for policies and tariffs
+│
+└── macmap/                              # MacMap Scraper Package
+    ├── __init__.py                      # Package exports
+    ├── macmap_tariff.py                 # Main scraper for tariff data
+    └── macmap_countries/                # Country code mappings
+        └── countries.json               # Country data
+
+SHARED UTILITIES (in parent directory):
+├── utils.py                             # Shared utility functions
+├── constants.py                         # Configuration constants
+├── dataparser.py                        # Data parsing utilities
+├── decrypt.py                           # Decryption utilities
+├── main.py                              # Main application (updated imports)
+├── tasks.py                             # Celery tasks (updated imports)
+└── test_scraper_imports.py              # Import verification script
+
+TOTAL FILES:
+- 6 scraper packages
+- 18 Python files in scrapers/
+- All imports verified and working
+- Zero breaking changes

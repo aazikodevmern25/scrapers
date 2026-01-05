@@ -1,0 +1,71 @@
+╔════════════════════════════════════════════════════════════════╗
+║                                                                ║
+║         🌍 WORKING NGROK URL                                  ║
+║                                                                ║
+╚════════════════════════════════════════════════════════════════╝
+
+✅ ALL SERVICES WORKING!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🌍 CURRENT NGROK URL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Public URL:
+   https://d0ff4be3a59e.ngrok-free.app
+
+📋 Direct Links:
+
+   TradeMap Form:
+   https://d0ff4be3a59e.ngrok-free.app/trademap-form
+
+   Health Check:
+   https://d0ff4be3a59e.ngrok-free.app/api/v1/health
+
+   Dashboard:
+   https://d0ff4be3a59e.ngrok-free.app/
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 SERVICE STATUS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ FastAPI:      Running (port 8000)
+✅ Ngrok:        Running & Connected
+✅ Celery:       11 workers active
+✅ Redis:        Running & Cleared
+✅ MongoDB:      Connected
+✅ 2Captcha:     $9.99 balance
+✅ Queue:        Empty (ready for tasks)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔄 AFTER SERVER RESTART
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+To get new ngrok URL:
+  curl -s http://localhost:4040/api/tunnels | grep -o '"public_url":"https://[^"]*"' | cut -d'"' -f4
+
+Or check this file:
+  cat /home/aaziko/scrapers/CURRENT_NGROK_URL.txt
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💡 FOR PERMANENT URL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Upgrade ngrok to paid ($8/month):
+  → URL: https://scraper.aaziko.com
+  → Never changes after restart
+  → Professional
+
+To upgrade: https://dashboard.ngrok.com/billing/subscription
+
+
+═══════════════════════════════════════════════════════════════
+
+🎊 READY TO USE!
+
+Access your scraper at:
+https://d0ff4be3a59e.ngrok-free.app/trademap-form
+
+═══════════════════════════════════════════════════════════════

@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MacMap Full Tariff Scraper</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .info-box {
+            background: #f0f7ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 25px;
+            border-radius: 5px;
+        }
+
+        .info-box p {
+            color: #333;
+            line-height: 1.6;
+            margin: 5px 0;
+        }
+
+        .info-box strong {
+            color: #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+
+        .select-wrapper {
+            position: relative;
+        }
+
+        select {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1em;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 15px center;
+            padding-right: 40px;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        select:hover {
+            border-color: #667eea;
+        }
+
+        select option {
+            padding: 10px;
+        }
+
+        .selected-countries {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            min-height: 50px;
+        }
+
+        .selected-countries-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .country-tag {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 8px 15px;
+            margin: 5px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            position: relative;
+            padding-right: 35px;
+        }
+
+        .country-tag .remove-btn {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.3);
+            border: none;
+            color: white;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-weight: bold;
+            line-height: 1;
+            transition: background 0.3s;
+        }
+
+        .country-tag .remove-btn:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .submit-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .submit-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .clear-btn {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .clear-btn:hover {
+            background: #ff5252;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(255, 107, 107, 0.3);
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-box .number {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-box .label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌍 MacMap Full Tariff Scraper</h1>
+            <p>Fetch complete tariff data for all HS codes and years</p>
+        </div>
+
+        <div class="info-box">
+            <p><strong>📋 What this scraper does:</strong></p>
+            <p>• Automatically fetches ALL available years for each country</p>
+            <p>• Scrapes ALL HS codes (8-digit level) for each year</p>
+            <p>• Creates comprehensive tariff database</p>
+            <p><strong>⚠️ Note:</strong> This is a FULL scrape - may take several hours per country!</p>
+        </div>
+
+        <form id="scrapeForm">
+            <div class="form-group">
+                <label for="countrySelect">Method 1: Select from Dropdown</label>
+                <div class="select-wrapper">
+                    <select id="countrySelect">
+                        <option value="">-- Select a country to add --</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="countryInput">Method 2: Type Countries (comma-separated)</label>
+                <input 
+                    type="text" 
+                    id="countryInput" 
+                    placeholder="Example: China, India, United States of America, Japan"
+                    style="width: 100%; padding: 15px; border: 2px solid #e0e0e0; border-radius: 10px; font-size: 1em; transition: all 0.3s ease;"
+                    onfocus="this.style.borderColor='#667eea'; this.style.boxShadow='0 0 0 3px rgba(102, 126, 234, 0.1)';"
+                    onblur="this.style.borderColor='#e0e0e0'; this.style.boxShadow='none';"
+                    onkeypress="if(event.key === 'Enter') { event.preventDefault(); addCountriesFromInput(); }"
+                />
+                <p style="margin-top: 5px; font-size: 0.9em; color: #666;">
+                    💡 Tip: Separate countries with commas. Press Enter or click button to add.
+                </p>
+                <button 
+                    type="button" 
+                    onclick="addCountriesFromInput()"
+                    style="margin-top: 10px; padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s;"
+                    onmouseover="this.style.background='#5568d3'"
+                    onmouseout="this.style.background='#667eea'"
+                >
+                    Add Countries
+                </button>
+            </div>
+                
+            <div class="form-group">
+                <div class="selected-countries" id="selectedCountries">
+                    <span class="selected-countries-label">Selected Countries (0):</span>
+                    <div id="countryTags"></div>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button type="button" class="clear-btn" onclick="clearCountries()">Clear All</button>
+                <button type="submit" class="submit-btn" id="submitBtn" disabled>Start Scraping</button>
+            </div>
+        </form>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 15px; color: #667eea; font-weight: 600;">Submitting tasks...</p>
+        </div>
+
+        <div class="message" id="message"></div>
+
+        <div class="stats" id="stats" style="display: none;"></div>
+    </div>
+
+    <script>
+        let selectedCountries = [];
+        let allCountries = [];
+
+        // Load countries from JSON
+        async function loadCountries() {
+            try {
+                const response = await fetch('/static/countries.json');
+                if (!response.ok) {
+                    throw new Error('Failed to load countries');
+                }
+                const data = await response.json();
+                allCountries = data.sort((a, b) => a.Name.localeCompare(b.Name));
+                
+                const select = document.getElementById('countrySelect');
+                allCountries.forEach(country => {
+                    const option = document.createElement('option');
+                    option.value = country.Name;
+                    option.textContent = country.Name;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading countries:', error);
+                showMessage('Error loading countries: ' + error.message, 'error');
+            }
+        }
+
+        // Handle country selection
+        document.getElementById('countrySelect').addEventListener('change', function(e) {
+            const country = e.target.value;
+            if (country && !selectedCountries.includes(country)) {
+                selectedCountries.push(country);
+                updateSelectedCountries();
+                e.target.value = '';
+            }
+        });
+
+        function updateSelectedCountries() {
+            const container = document.getElementById('countryTags');
+            const label = document.querySelector('.selected-countries-label');
+            const submitBtn = document.getElementById('submitBtn');
+            
+            label.textContent = `Selected Countries (${selectedCountries.length}):`;
+            
+            container.innerHTML = '';
+            selectedCountries.forEach(country => {
+                const tag = document.createElement('div');
+                tag.className = 'country-tag';
+                tag.innerHTML = `
+                    ${country}
+                    <button class="remove-btn" onclick="removeCountry('${country}')">×</button>
+                `;
+                container.appendChild(tag);
+            });
+
+            submitBtn.disabled = selectedCountries.length === 0;
+        }
+
+        function removeCountry(country) {
+            selectedCountries = selectedCountries.filter(c => c !== country);
+            updateSelectedCountries();
+        }
+
+        function clearCountries() {
+            selectedCountries = [];
+            updateSelectedCountries();
+            document.getElementById('countryInput').value = '';
+        }
+
+        function addCountriesFromInput() {
+            const input = document.getElementById('countryInput');
+            const countryText = input.value.trim();
+            
+            if (!countryText) {
+                showMessage('Please enter at least one country name', 'error');
+                return;
+            }
+
+            // Split by comma and clean up
+            const countries = countryText.split(',').map(c => c.trim()).filter(c => c.length > 0);
+            
+            let addedCount = 0;
+            let invalidCountries = [];
+
+            countries.forEach(country => {
+                // Check if country exists in the list (case-insensitive)
+                const matchedCountry = allCountries.find(c => 
+                    c.Name.toLowerCase() === country.toLowerCase()
+                );
+
+                if (matchedCountry && !selectedCountries.includes(matchedCountry.Name)) {
+                    selectedCountries.push(matchedCountry.Name);
+                    addedCount++;
+                } else if (!matchedCountry) {
+                    invalidCountries.push(country);
+                } else if (selectedCountries.includes(matchedCountry.Name)) {
+                    // Already added, skip silently
+                }
+            });
+
+            if (addedCount > 0) {
+                updateSelectedCountries();
+                input.value = '';
+                
+                if (invalidCountries.length > 0) {
+                    showMessage(
+                        `✅ Added ${addedCount} countries. ⚠️ Invalid: ${invalidCountries.join(', ')}`,
+                        'error'
+                    );
+                } else {
+                    showMessage(`✅ Successfully added ${addedCount} countries!`, 'success');
+                }
+            } else if (invalidCountries.length > 0) {
+                showMessage(
+                    `❌ Invalid country names: ${invalidCountries.join(', ')}. Please use exact names from dropdown.`,
+                    'error'
+                );
+            } else {
+                showMessage('All countries were already selected', 'error');
+            }
+        }
+
+        // Handle form submission
+        document.getElementById('scrapeForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            if (selectedCountries.length === 0) {
+                showMessage('Please select at least one country', 'error');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('message').style.display = 'none';
+            document.getElementById('submitBtn').disabled = true;
+
+            try {
+                const response = await fetch('/api/v1/scrape/tariff/full/bulk', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        countries: selectedCountries
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage(
+                        `✅ Success! ${data.total_tasks} full tariff scraping tasks created for ${selectedCountries.length} countries. ` +
+                        `This will take several hours to complete. Check logs for progress.`,
+                        'success'
+                    );
+                    
+                    // Show stats
+                    showStats(data);
+                    
+                    // Clear selection
+                    clearCountries();
+                } else {
+                    showMessage('❌ Error: ' + (data.detail || 'Failed to create tasks'), 'error');
+                }
+            } catch (error) {
+                showMessage('❌ Error: ' + error.message, 'error');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('submitBtn').disabled = false;
+            }
+        });
+
+        function showMessage(text, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = text;
+            messageDiv.className = 'message ' + type;
+            messageDiv.style.display = 'block';
+
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, 10000);
+        }
+
+        function showStats(data) {
+            const statsDiv = document.getElementById('stats');
+            statsDiv.innerHTML = `
+                <div class="stat-box">
+                    <div class="number">${data.total_tasks}</div>
+                    <div class="label">Total Tasks</div>
+                </div>
+                <div class="stat-box">
+                    <div class="number">${selectedCountries.length}</div>
+                    <div class="label">Countries</div>
+                </div>
+                <div class="stat-box">
+                    <div class="number">~${Math.round(data.total_tasks / 60)} hrs</div>
+                    <div class="label">Est. Time</div>
+                </div>
+            `;
+            statsDiv.style.display = 'grid';
+
+            setTimeout(() => {
+                statsDiv.style.display = 'none';
+            }, 15000);
+        }
+
+        // Load countries on page load
+        loadCountries();
+    </script>
+</body>
+</html>

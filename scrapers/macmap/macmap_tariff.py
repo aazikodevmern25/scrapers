@@ -130,14 +130,18 @@ def ProcessTradeAgreement(js, c1_id, c2_id, year, hsc):
     ftaid = js["FtaId"]
     logger.info(f"Processing trade agreement: {ftaid} for countries {c1_id}, {c2_id}, year {year}, HS code {hsc}")
     req = SendGetRequests(
-        f"https://www.macmap.org/api/results/fta?reporter={c1_id}&partner={c2_id}&product={hsc}&ftaId={ftaid}",headers
+        f"https://www.macmap.org/api/results/fta?reporter={c1_id}&partner={c2_id}&product={hsc}&ftaId={ftaid}",
+        headers,
+        use_proxy=False
     )
     logger.info(f"FTA request: {req.url}, status: {req.status_code}")
     if req.status_code == 200:
         dt = req.json()
         dt["pdf_urls"] = []
         req1 = SendGetRequests(
-            f"https://www.macmap.org/api/results/roo-by-fta?reporter={c1_id}&partner={c2_id}&ftaId={ftaid}",headers
+            f"https://www.macmap.org/api/results/roo-by-fta?reporter={c1_id}&partner={c2_id}&ftaId={ftaid}",
+            headers,
+            use_proxy=False
         )
         logger.info(f"ROO by FTA request: {req1.url}, status: {req1.status_code}")
         r1_data = NormalizeFtaData(req1.json())
@@ -165,9 +169,23 @@ def ScrapeMacmapTariff(country1, country2, year, hsc):
     c2_id = countries[country2]
     item = hscodes_full[hsc]
     req = SendGetRequests(
-        f"https://www.macmap.org/api/results/custom-duties-by-year?reporter={c1_id}&partner={c2_id}&product={hsc}&year={year}",headers
+        f"https://www.macmap.org/api/results/custom-duties-by-year?reporter={c1_id}&partner={c2_id}&product={hsc}&year={year}",
+        headers,
+        use_proxy=False  # MacMap doesn't require proxy and blocks proxy IPs
     )
+    
+    # Check if request was successful
+    if req is None:
+        logger.error(f"Failed to fetch data from MacMap API for {country1} -> {country2}, HS: {hsc}")
+        raise Exception(f"MacMap API request failed after retries")
+    
     logger.info(f"Custom duties request: {req.url}, status: {req.status_code}")
+    
+    # Check status code
+    if req.status_code != 200:
+        logger.error(f"MacMap API returned status {req.status_code} for {country1} -> {country2}, HS: {hsc}")
+        raise Exception(f"MacMap API returned status {req.status_code}")
+    
     custom_tariff_data = []
     json_data = req.json()
     logger.info(f"Found {len(json_data['CustomDuty'])} custom duty items")
@@ -201,15 +219,20 @@ def ScrapeMacmapTradeRemedies(country1, country2, year, hs):
     logger.info(f"Scraping Macmap trade remedies for countries: {country1}, {country2}, year: {year}, HS code: {hs}")
     c1_id = countries[country1]
     c2_id = countries[country2]
-    req1 = SendGetRequests(f"https://www.macmap.org/api/tr-products?remedytype=All&reporterCode={c1_id}&level=8&year={year}&partnerCode={c2_id}&productCode={hs}",
-        headers)
+    req1 = SendGetRequests(
+        f"https://www.macmap.org/api/tr-products?remedytype=All&reporterCode={c1_id}&level=8&year={year}&partnerCode={c2_id}&productCode={hs}",
+        headers,
+        use_proxy=False
+    )
     logger.info(f"Trade remedies request: {req1.url}, status: {req1.status_code}")
     
     for sr in req1.json():
         hsc = sr["Code"]
         item = sr["Name"]
         req = SendGetRequests(
-            f"https://www.macmap.org/api/results/trade-remedy-by-year?remedytype=All&reporter={c1_id}&year={year}&partner={c2_id}&product={hsc}",headers
+            f"https://www.macmap.org/api/results/trade-remedy-by-year?remedytype=All&reporter={c1_id}&year={year}&partner={c2_id}&product={hsc}",
+            headers,
+            use_proxy=False
         )
         logger.info(f"Trade remedies request: {req.url}, status: {req.status_code}")
         if req.status_code == 200:
@@ -339,7 +362,7 @@ def ScrapeMacmapRegulatoryRequirements(country1, country2, hsc, regtype):
         print(f"🌐 MacMap Regulatory URL [{idx}/{len(hsc_codes_to_scrape)}]: {url}")
         
         try:
-            req = SendGetRequests(url, headers)
+            req = SendGetRequests(url, headers, use_proxy=False)
             logger.info(f"📡 Response status: {req.status_code}")
             
             if req.status_code == 200:
@@ -400,7 +423,9 @@ def ScrapeMacmapCompareMarket(country, hsc):
         raise
     item = hscodes_full[hsc]
     req = SendGetRequests(
-        f"https://www.macmap.org/api/results/importerview?reporter=All&partner={c1_id}&product={hsc}",headers
+        f"https://www.macmap.org/api/results/importerview?reporter=All&partner={c1_id}&product={hsc}",
+        headers,
+        use_proxy=False
     )
     logger.info(f"Compare market request: {req.url}, status: {req.status_code}")
     if req.status_code == 200:
@@ -435,7 +460,9 @@ def ScrapeMacmapCompetitors(country, hsc):
     except:
         item = hsc
     req = SendGetRequests(
-        f"https://www.macmap.org/api/results/exporterview?reporter={c1_id}&partner=All&product={hsc}",headers
+        f"https://www.macmap.org/api/results/exporterview?reporter={c1_id}&partner=All&product={hsc}",
+        headers,
+        use_proxy=False
     )
     logger.info(f"Competitors request: {req.url}, status: {req.status_code}")
     if req.status_code == 200:
@@ -467,7 +494,9 @@ def ScrapeMacmapProducts(country1, country2, hsc_lvl):
     c1_id = countries[country1]
     c2_id = countries[country2]
     req = SendGetRequests(
-        f"https://www.macmap.org/api/results/productview?reporter={c1_id}&partner={c2_id}&product=All&level={hsc_lvl}",headers
+        f"https://www.macmap.org/api/results/productview?reporter={c1_id}&partner={c2_id}&product=All&level={hsc_lvl}",
+        headers,
+        use_proxy=False
     )
     logger.info(f"Products request: {req.url}, status: {req.status_code}")
     if req.status_code == 200:
@@ -499,7 +528,9 @@ def SCTariff(row):
     hsc, item = hsc_
     logger.info(f"Scraping single country tariff for country: {country}, year: {year}, HS code: {hsc}")
     req = SendGetRequests(
-        f"https://www.macmap.org/api/results/custom-duties-by-year?reporter={c1_id}&partner=all&product={hsc}&year={year}",headers
+        f"https://www.macmap.org/api/results/custom-duties-by-year?reporter={c1_id}&partner=all&product={hsc}&year={year}",
+        headers,
+        use_proxy=False
     )
     logger.info(f"Custom duties request: {req.url}, status: {req.status_code}")
     custom_tariff_data = []
@@ -544,15 +575,27 @@ def ScrapeTarrifFull(country):
     try:
         c1_id = countries[country]
         req = SendGetRequests(
-            f"https://www.macmap.org/api/getyears?datatype=Tariff&reporters={c1_id}",headers
+            f"https://www.macmap.org/api/getyears?datatype=Tariff&reporters={c1_id}",
+            headers,
+            use_proxy=False
         )
+        
+        # Check if request was successful
+        if req is None:
+            logger.error(f"Failed to fetch years for country {country}")
+            return
+        
         logger.info(f"Get years request: {req.url}, status: {req.status_code}")
         all_combinations = []
         if req.status_code == 200:
             years = [x["Year"] for x in req.json()]
             logger.info(f"Found {len(years)} years: {years}")
             for year in years:
-                req = SendGetRequests(f'https://www.macmap.org/api/customs-duties-products?countryCode={c1_id}&level=8&year={year}',headers)
+                req = SendGetRequests(
+                    f'https://www.macmap.org/api/customs-duties-products?countryCode={c1_id}&level=8&year={year}',
+                    headers,
+                    use_proxy=False
+                )
                 if len(req.json()) > 0:
                     # Get all HS codes for this year (no filtering)
                     for i in req.json():

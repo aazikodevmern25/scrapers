@@ -4,7 +4,13 @@ import traceback
 from twocaptcha import TwoCaptcha
 from rapidfuzz import fuzz
 from scrapy import Selector
-from seleniumbase import Driver
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import time
 from urllib.parse import quote, urlencode
 import sys
 import os
@@ -140,7 +146,7 @@ def CaptchaSolver(driver):
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
             "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8"
         }
-        img_url = Selector(text=driver.get_page_source()).xpath('//div[@class="div_captchaImg"]/img/@src').get()
+        img_url = Selector(text=driver.page_source).xpath('//div[@class="div_captchaImg"]/img/@src').get()
         if img_url:
             img_url = f'https://www.trademap.org/{img_url}'
             req = requests.get(img_url, headers=img_headers)
@@ -150,10 +156,10 @@ def CaptchaSolver(driver):
                 f.write(req.content)
             
             code = solver()
-            driver.type('input[id="ctl00_PageContent_CaptchaAnswer"]', code)
-            driver.sleep(1)
-            driver.click('input[value="Validate"]')
-            driver.sleep(5)
+            driver.find_element(By.CSS_SELECTOR, 'input[id="ctl00_PageContent_CaptchaAnswer"]').send_keys(code)
+            time.sleep(1)
+            driver.find_element(By.CSS_SELECTOR, 'input[value="Validate"]').click()
+            time.sleep(5)
             logger.info("CAPTCHA validation completed")
     except Exception as e:
         logger.error(f"CAPTCHA handling failed: {e}")
@@ -189,41 +195,43 @@ def ParseCountry(country, hsValue):
 
 def InitializeDriver():
     try:
-        logger.info("Initializing Selenium driver (visible mode - required for SSL)")
+        logger.info("Initializing Selenium driver (headless mode for server)")
         
-        # Initialize driver WITHOUT proxy to avoid authentication popups
-        # Headless=False because TradeMap SSL doesn't work in headless mode
-        driver = Driver(
-            uc=True, 
-            user_data_dir="trademap", 
-            log_cdp_events=True, 
-            headless=False
-        )
-        logger.info("Driver initialized successfully (visible browsers required for SSL)")
+        # Initialize driver with Chrome options for server environment
+        chrome_options = Options()
+        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--disable-gpu')
+        chrome_options.add_argument('--window-size=1920,1080')
+        # Don't use user-data-dir to avoid creating temp folders
+        
+        driver = webdriver.Chrome(options=chrome_options)
+        logger.info("Driver initialized successfully (headless mode)")
         driver.get('https://www.trademap.org/Index.aspx')
-        driver.sleep(4)
+        time.sleep(4)
         
-        resp = Selector(text=driver.get_page_source())
+        resp = Selector(text=driver.page_source)
         if resp.xpath('//a[@onclick="Login();"]').get():
             logger.info("Login required, proceeding with authentication")
-            driver.click('a[onclick="Login();"]')
-            driver.sleep(3)
+            driver.find_element(By.CSS_SELECTOR, 'a[onclick="Login();"]').click()
+            time.sleep(3)
             
-            resp = Selector(text=driver.get_page_source())
+            resp = Selector(text=driver.page_source)
             if resp.xpath('//button[@value="login"]'):
                 logger.info("Filling login credentials")
-                driver.type(f'input[aria-label="Username"]','aazikodevteamleader@gmail.com')
-                driver.type(f'input[aria-label="Password"]','Aaziko@123')
-                driver.sleep(1)
-                driver.click('label[class="switch switch-remember"]')
-                driver.click('button[value="login"]')
-                driver.sleep(5)
+                driver.find_element(By.CSS_SELECTOR, 'input[aria-label="Username"]').send_keys('aazikodevteamleader@gmail.com')
+                driver.find_element(By.CSS_SELECTOR, 'input[aria-label="Password"]').send_keys('Aaziko@123')
+                time.sleep(1)
+                driver.find_element(By.CSS_SELECTOR, 'label[class="switch switch-remember"]').click()
+                driver.find_element(By.CSS_SELECTOR, 'button[value="login"]').click()
+                time.sleep(5)
                 logger.info("Login submitted")
-            elif Selector(text=driver.get_page_source()).xpath('//div[@class="div_captchaImg"]').get():
+            elif Selector(text=driver.page_source).xpath('//div[@class="div_captchaImg"]').get():
                 CaptchaSolver(driver)
                 
-            resp = Selector(text=driver.get_page_source())
-            if Selector(text=driver.get_page_source()).xpath('//div[@class="div_captchaImg"]').get():
+            resp = Selector(text=driver.page_source)
+            if Selector(text=driver.page_source).xpath('//div[@class="div_captchaImg"]').get():
                 CaptchaSolver(driver)
         
         logger.info("Driver initialization completed successfully")
@@ -235,7 +243,7 @@ def InitializeDriver():
 def DetectCaptcha(driver):
 
     try:
-        if Selector(text=driver.get_page_source()).xpath('//div[@class="div_captchaImg"]').get():
+        if Selector(text=driver.page_source).xpath('//div[@class="div_captchaImg"]').get():
             logger.info("CAPTCHA detected, solving...")
             CaptchaSolver(driver)
             driver.get('https://www.trademap.org/Index.aspx')
@@ -322,8 +330,32 @@ def MapData(yqm, hscode, hsv, hst, c1, c2, mode):
             "DateUpdated": datetime.datetime.now()
         }
         
-        result = trademap_collection.insert_one(data)
-        logger.info(f"Data saved to MongoDB with ID: {result.inserted_id}")
+        # Prevent duplicates: unique combination of HsCode + Country1 + Country2 + Mode
+        # Import and Export are different, so same HS code with different modes is allowed
+        filter_query = {
+            "HsCode": hscode,
+            "Data.Country1": c1,
+            "Data.Country2": c2,
+            "Mode": mode
+        }
+        
+        # Check if record already exists
+        existing = trademap_collection.find_one(filter_query)
+        if existing:
+            # Update existing record instead of creating duplicate
+            result = trademap_collection.update_one(
+                filter_query,
+                {"$set": {
+                    "Data": main_data,
+                    "ProductName": hst,
+                    "DateUpdated": datetime.datetime.now()
+                }}
+            )
+            logger.info(f"Updated existing record in MongoDB (HsCode: {hscode}, {c1}->{c2}, Mode: {mode})")
+        else:
+            # Insert new record
+            result = trademap_collection.insert_one(data)
+            logger.info(f"Data saved to MongoDB with ID: {result.inserted_id}")
         
     except Exception as e:
         logger.error(f"Data mapping/saving failed: {e}")
@@ -573,11 +605,11 @@ def ScrapeTrademap(hscode, country1, country2):
         logger.info(f"Starting TradeMap scraping for HS Code: {hscode}, {country1} -> {country2}")
         driver = InitializeDriver()
         driver.get('https://www.trademap.org/Index.aspx')
-        driver.sleep(5)
+        time.sleep(5)
         DetectCaptcha(driver)
         GetCookies(driver)
         logger.info(f"Cookies obtained: {json_headers.get('Cookie', 'None')[:100]}...")
-        resp = Selector(text=driver.get_page_source())
+        resp = Selector(text=driver.page_source)
         viewgenerator = resp.xpath('//input[@name="__VIEWSTATEGENERATOR"]/@value').get()
         viewstate = resp.xpath('//input[@name="__VIEWSTATE"]/@value').get()
         logger.info(f"ViewState tokens extracted - VG: {viewgenerator}, VS length: {len(viewstate) if viewstate else 0}")

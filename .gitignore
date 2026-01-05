@@ -34,3 +34,28 @@ indiamart.db-shm
 # Large data files
 product_urls.csv
 product_urls_clean.csv
+
+# Temporary files and process IDs
+.trademap_pids
+.macmap_pids
+.ngrok_pid
+*.pid
+
+# Browser profiles and temp directories
+trademap/
+trademap_*/
+chrome_debug.log
+
+# Environment and credentials
+.env
+
+# Temporary documentation files
+(done
+screenshot)
+your
+in
+record
+A
+Create
+DNS
+1.

@@ -3,6 +3,15 @@ import json
 import re
 
 def parse_trademap_table_flexible(html_content):
+    # Handle None or empty content
+    if not html_content:
+        return {
+            "format": "no_data",
+            "trade_descriptions": [],
+            "years": [],
+            "products": []
+        }
+    
     selector = Selector(text=html_content)
     
     has_hs8_column = bool(selector.xpath('//th[contains(text(), "HS8")]'))

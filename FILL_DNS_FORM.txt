@@ -1,0 +1,165 @@
+╔════════════════════════════════════════════════════════════════╗
+║                                                                ║
+║         📋 EXACTLY WHAT TO FILL IN YOUR DNS FORM              ║
+║                                                                ║
+╚════════════════════════════════════════════════════════════════╝
+
+Based on your screenshot, here's EXACTLY what to enter:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OPTION 1: NGROK WITH CUSTOM DOMAIN (RECOMMENDED)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 1: Upgrade Ngrok
+→ Go to: https://dashboard.ngrok.com/billing/subscription
+→ Choose "Personal" or "Pro" plan ($8-10/month)
+
+STEP 2: Add Your Domain in Ngrok
+→ Go to: https://dashboard.ngrok.com/cloud-edge/domains
+→ Click "New Domain"
+→ Select "Use your own domain"
+→ Enter: scraper.yourdomain.com
+→ Ngrok will show you a CNAME target like:
+   abc123.ngrok-agent.com
+
+STEP 3: Fill Your DNS Form (from screenshot)
+
+┌─────────────────────────────────────────────────────────────┐
+│ Type *                                                      │
+│ ┌─────────────────────┐                                    │
+│ │ CNAME              ▼│  ← Select "CNAME"                  │
+│ └─────────────────────┘                                    │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ Name *                                                      │
+│ ┌─────────────────────────────────────────────────────────┐│
+│ │ scraper                                                 ││ ← Type "scraper"
+│ └─────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ Value *                                                     │
+│ ┌─────────────────────────────────────────────────────────┐│
+│ │ abc123.ngrok-agent.com                                  ││ ← Paste from ngrok
+│ └─────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ TTL                                                         │
+│ ┌─────────────────────┐                                    │
+│ │ 1 Hour             ▼│  ← Select "1 Hour"                 │
+│ └─────────────────────┘                                    │
+└─────────────────────────────────────────────────────────────┘
+
+Then click: "Add More Records" → "Save"
+
+STEP 4: Start Ngrok with Your Domain
+→ On your server, run:
+   pkill ngrok
+   ngrok http --domain=scraper.yourdomain.com 8888
+
+RESULT: https://scraper.yourdomain.com ✅ PERMANENT!
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OPTION 2: DIRECT SERVER IP (FREE BUT COMPLEX)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Fill Your DNS Form:
+
+┌─────────────────────────────────────────────────────────────┐
+│ Type *                                                      │
+│ ┌─────────────────────┐                                    │
+│ │ A                  ▼│  ← Select "A"                       │
+│ └─────────────────────┘                                    │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ Name *                                                      │
+│ ┌─────────────────────────────────────────────────────────┐│
+│ │ scraper                                                 ││ ← Type "scraper"
+│ └─────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ Value *                                                     │
+│ ┌─────────────────────────────────────────────────────────┐│
+│ │ 202.47.115.6                                            ││ ← Your server IP
+│ └─────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ TTL                                                         │
+│ ┌─────────────────────┐                                    │
+│ │ 1 Hour             ▼│  ← Select "1 Hour"                 │
+│ └─────────────────────┘                                    │
+└─────────────────────────────────────────────────────────────┘
+
+Then click: "Add More Records" → "Save"
+
+⚠️  ADDITIONAL STEPS NEEDED:
+1. Install Nginx on server
+2. Configure reverse proxy
+3. Get SSL certificate (Let's Encrypt)
+4. Open port 80 and 443 in firewall
+
+This is MORE COMPLEX - only choose if you know Linux/Nginx!
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMPARISON
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┌────────────────┬──────────────┬──────────────┬─────────────┐
+│ Method         │ DNS Record   │ Cost         │ Difficulty  │
+├────────────────┼──────────────┼──────────────┼─────────────┤
+│ Ngrok CNAME    │ CNAME        │ $8/month     │ ⭐ Easy     │
+│ Direct A       │ A            │ FREE         │ ⭐⭐⭐ Hard │
+│ Cloudflare     │ CNAME (auto) │ FREE         │ ⭐⭐ Medium │
+└────────────────┴──────────────┴──────────────┴─────────────┘
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 MY RECOMMENDATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+→ Use OPTION 1: Ngrok with Custom Domain
+
+Why?
+✅ Takes only 5 minutes
+✅ No server configuration needed
+✅ Automatic SSL certificate
+✅ Professional and reliable
+✅ Worth $8/month for hassle-free setup
+
+Just fill the form with:
+- Type: CNAME
+- Name: scraper
+- Value: [from ngrok dashboard]
+- TTL: 1 Hour
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⏱️  AFTER SAVING DNS RECORD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Wait 5-30 minutes for DNS propagation
+
+Check if it works:
+  nslookup scraper.yourdomain.com
+
+Start ngrok:
+  ngrok http --domain=scraper.yourdomain.com 8888
+
+Access your scraper:
+  https://scraper.yourdomain.com/trademap-form
+
+
+═══════════════════════════════════════════════════════════════
+
+🎊 RESULT: Permanent URL that NEVER expires!
+
+   https://scraper.yourdomain.com
+
+═══════════════════════════════════════════════════════════════

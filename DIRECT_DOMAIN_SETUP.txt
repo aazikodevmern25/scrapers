@@ -1,0 +1,212 @@
+╔════════════════════════════════════════════════════════════════╗
+║                                                                ║
+║      🌍 DIRECT DOMAIN SETUP (NO NGROK) - STEP BY STEP         ║
+║                                                                ║
+╚════════════════════════════════════════════════════════════════╝
+
+You chose: A Record with IP 202.47.115.6 (FREE)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 1: CREATE DNS RECORD (IN YOUR DOMAIN DASHBOARD)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Fill the form:
+
+┌─────────────────────────────────────┐
+│ Type:  A                           │
+│ Name:  scraper                     │
+│ Value: 202.47.115.6                │
+│ TTL:   1 Hour                      │
+└─────────────────────────────────────┘
+
+Click "Save"
+
+⏱️  Wait 5-30 minutes for DNS propagation
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2: CHECK DNS IS WORKING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Run this command:
+
+  nslookup scraper.yourdomain.com
+
+Should show: 202.47.115.6
+
+If not, wait longer and try again.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3: RUN SETUP SCRIPT (ON YOUR SERVER)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Run this command:
+
+  cd /home/aaziko/scrapers
+  bash setup_direct_domain.sh
+
+This will:
+  ✅ Install Nginx (web server)
+  ✅ Configure reverse proxy
+  ✅ Open firewall ports (80, 443)
+  ✅ Install SSL certificate (HTTPS)
+  ✅ Stop ngrok (not needed anymore)
+
+Just follow the prompts!
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHAT THE SCRIPT DOES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Installs Nginx
+   → Web server that handles HTTP/HTTPS
+
+2. Creates Nginx config
+   → Routes traffic from port 80/443 to your FastAPI (port 8888)
+
+3. Opens firewall ports
+   → Port 80 (HTTP)
+   → Port 443 (HTTPS)
+
+4. Gets SSL certificate
+   → Free from Let's Encrypt
+   → Enables HTTPS (secure connection)
+
+5. Stops ngrok
+   → Not needed anymore!
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AFTER SETUP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Your scraper will be accessible at:
+
+  http://scraper.yourdomain.com
+  https://scraper.yourdomain.com (with SSL)
+
+Direct links:
+  https://scraper.yourdomain.com/trademap-form
+  https://scraper.yourdomain.com/api/v1/health
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TESTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Test if it works:
+
+  curl http://scraper.yourdomain.com/api/v1/health
+
+Should return: {"status": "healthy"}
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SERVICES STATUS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After setup, you'll have:
+
+✅ FastAPI: Running on port 8888 (internal)
+✅ Nginx: Running on port 80/443 (public)
+✅ Celery: Running (10 workers)
+✅ MongoDB: Running
+✅ Redis: Running
+❌ Ngrok: Stopped (not needed)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IMPORTANT NOTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. DNS Propagation
+   → Takes 5-30 minutes
+   → Check with: nslookup scraper.yourdomain.com
+
+2. SSL Certificate
+   → Automatically renews every 90 days
+   → Certbot handles this
+
+3. Firewall
+   → Ports 80 and 443 must be open
+   → Script does this automatically
+
+4. FastAPI
+   → Must keep running on port 8888
+   → Nginx forwards traffic to it
+
+5. No More Ngrok
+   → You don't need ngrok anymore!
+   → Direct domain access
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Problem: "Connection refused"
+→ Check FastAPI is running: ps aux | grep uvicorn
+→ Check Nginx is running: sudo systemctl status nginx
+
+Problem: "DNS not resolving"
+→ Wait longer (up to 1 hour)
+→ Check DNS: nslookup scraper.yourdomain.com
+
+Problem: "SSL certificate failed"
+→ Make sure DNS is working first
+→ Run manually: sudo certbot --nginx -d scraper.yourdomain.com
+
+Problem: "502 Bad Gateway"
+→ FastAPI not running or wrong port
+→ Check: curl http://localhost:8888/api/v1/health
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+USEFUL COMMANDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Check Nginx status:
+  sudo systemctl status nginx
+
+Restart Nginx:
+  sudo systemctl restart nginx
+
+Check Nginx config:
+  sudo nginx -t
+
+View Nginx logs:
+  sudo tail -f /var/log/nginx/error.log
+
+Renew SSL certificate:
+  sudo certbot renew
+
+Check open ports:
+  sudo netstat -tulpn | grep LISTEN
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BENEFITS OF THIS SETUP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ FREE (no monthly cost)
+✅ Permanent URL (never changes)
+✅ Professional (your own domain)
+✅ Secure (HTTPS with SSL)
+✅ Fast (direct connection, no tunnel)
+✅ Reliable (no third-party dependency)
+
+
+═══════════════════════════════════════════════════════════════
+
+🎊 SUMMARY:
+
+1. Create A record in DNS: 202.47.115.6
+2. Wait for DNS propagation
+3. Run: bash setup_direct_domain.sh
+4. Access: https://scraper.yourdomain.com
+
+Your permanent, free domain is ready!
+
+═══════════════════════════════════════════════════════════════

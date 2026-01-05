@@ -121,6 +121,12 @@ if react_build_path.exists():
     app.mount("/_next/static", StaticFiles(directory=str(react_build_path)), name="react-static")
     logger.info(f"Mounted React static files from {react_build_path}")
 
+# Mount static files for forms (MacMap, TradeMap, etc.)
+static_path = Path(__file__).parent.parent / "static"
+if static_path.exists():
+    app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+    logger.info(f"Mounted static files from {static_path}")
+
 class TaskResponse(BaseModel):
     task_id: str
     status: str
@@ -138,6 +144,15 @@ class TariffRequest(BaseModel):
     country2: str = Field(..., description="Exporting country")
     year: int = Field(..., description="Target year")
     hsc: str = Field(..., description="HS code")
+
+class TariffBulkRequest(BaseModel):
+    hscodes: List[str] = Field(..., description="List of HS codes")
+    importing_countries: List[str] = Field(..., description="List of importing countries (reporters)")
+    exporting_countries: List[str] = Field(..., description="List of exporting countries (partners)")
+    year: int = Field(..., description="Target year")
+
+class TariffFullBulkRequest(BaseModel):
+    countries: List[str] = Field(..., description="List of countries to scrape full tariff data")
 
 class TradeRemediesRequest(BaseModel):
     country1: str = Field(..., description="Importing country")
@@ -260,7 +275,11 @@ def get_task_info(task_id: str) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Error retrieving task info: {str(e)}")
 
 @app.get("/")
-async def root():
+async def root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/api")
+async def api_info():
     return {
         "message": "Macmap Scraper API",
         "version": "1.0.0",
@@ -283,6 +302,10 @@ async def root():
             "payload": "/payload"
         }
     }
+
+@app.get("/trademap-form")
+async def trademap_form(request: Request):
+    return templates.TemplateResponse("trademap_form.html", {"request": request})
 
 @app.get("/health")
 async def health_check():
@@ -393,6 +416,85 @@ async def scrape_tariff(request: TariffRequest):
         )
     except Exception as e:
         logger.error(f"Error queueing tariff task: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/scrape/tariff/bulk")
+async def scrape_tariff_bulk_api(request: TariffBulkRequest):
+    """
+    Create bulk MacMap Tariff scraping tasks for all combinations of HS codes and countries.
+    
+    Example:
+        - HS codes: ["29211", "081350"]
+        - Importing: ["United States", "China"]
+        - Exporting: ["India", "Germany"]
+        - Year: 2023
+        = Creates 2 × 2 × 2 = 8 tasks (all combinations)
+    """
+    try:
+        task_ids = []
+        total_tasks = len(request.hscodes) * len(request.importing_countries) * len(request.exporting_countries)
+        
+        logger.info(f"Creating {total_tasks} MacMap Tariff bulk tasks for year {request.year}")
+        
+        # Create all combinations of HS codes × importing countries × exporting countries
+        for hscode in request.hscodes:
+            for importing_country in request.importing_countries:
+                for exporting_country in request.exporting_countries:
+                    task = scrape_macmap_tariff.delay(
+                        importing_country.strip(),  # country1
+                        exporting_country.strip(),  # country2
+                        request.year,
+                        hscode.strip()
+                    )
+                    task_ids.append(task.id)
+                    logger.info(f"Queued MacMap Tariff bulk task {len(task_ids)}/{total_tasks}: {task.id} - HS:{hscode} ({importing_country} <- {exporting_country}, Year:{request.year})")
+        
+        return {
+            "status": "success",
+            "total_tasks": total_tasks,
+            "task_ids": task_ids,
+            "message": f"Successfully queued {total_tasks} MacMap Tariff scraping tasks for year {request.year}"
+        }
+    except Exception as e:
+        logger.error(f"Error queueing MacMap Tariff bulk tasks: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/scrape/tariff/full/bulk")
+async def scrape_tariff_full_bulk_api(request: TariffFullBulkRequest):
+    """
+    Create Full Tariff scraping tasks for multiple countries.
+    
+    Each country will scrape:
+    - All available years
+    - All HS codes (8-digit level) for each year
+    - Complete tariff data
+    
+    ⚠️ Warning: This is a FULL scrape and may take several hours per country!
+    
+    Example:
+        - Countries: ["China", "India", "United States"]
+        = Creates 3 full tariff scraping tasks
+    """
+    try:
+        task_ids = []
+        total_tasks = len(request.countries)
+        
+        logger.info(f"Creating {total_tasks} Full Tariff scraping tasks")
+        
+        # Create one full tariff task per country
+        for country in request.countries:
+            task = scrape_tariff_full.delay(country.strip())
+            task_ids.append(task.id)
+            logger.info(f"Queued Full Tariff task {len(task_ids)}/{total_tasks}: {task.id} - Country: {country}")
+        
+        return {
+            "status": "success",
+            "total_tasks": total_tasks,
+            "task_ids": task_ids,
+            "message": f"Successfully queued {total_tasks} Full Tariff scraping tasks. Each will scrape all years and HS codes."
+        }
+    except Exception as e:
+        logger.error(f"Error queueing Full Tariff bulk tasks: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/v1/scrape/trade-remedies", response_model=TaskResponse)

@@ -1,0 +1,99 @@
+╔════════════════════════════════════════════════════════════════╗
+║                                                                ║
+║         🔧 SOLUTION: TRAEFIK IS USING PORT 80                 ║
+║                                                                ║
+╚════════════════════════════════════════════════════════════════╝
+
+PROBLEM FOUND:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Your server has Coolify installed with Traefik proxy.
+Traefik is already using port 80 and 443.
+
+This is GOOD! We can use Traefik instead of Nginx.
+
+
+SOLUTION: USE TRAEFIK (EASIEST)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Option 1: Add your scraper to Coolify
+  → Go to Coolify dashboard
+  → Add new service
+  → Point to localhost:8888
+  → Set domain: scraper.aaziko.com
+  → Coolify handles SSL automatically!
+
+Option 2: Use a different port (8888 directly)
+  → Update DNS to use port
+  → Access: http://scraper.aaziko.com:8888
+  → No SSL, but works immediately
+
+Option 3: Stop Nginx, use Traefik labels
+  → Add Docker labels to FastAPI
+  → Traefik routes automatically
+  → More complex setup
+
+
+RECOMMENDED: OPTION 2 (SIMPLEST)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Since Traefik is using port 80, just use port 8888 directly:
+
+Your URL: http://scraper.aaziko.com:8888
+
+Benefits:
+✅ Works immediately
+✅ No configuration needed
+✅ No conflicts with Traefik
+
+Drawbacks:
+❌ Need to specify port :8888
+❌ No automatic SSL
+
+
+ALTERNATIVE: USE NGROK AGAIN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Since you have Coolify/Traefik complexity, ngrok might be easier:
+
+1. Upgrade ngrok to paid ($8/month)
+2. Use your domain with ngrok
+3. No server configuration needed
+4. Automatic SSL
+
+This avoids conflicts with Traefik entirely.
+
+
+WHAT TO DO NOW:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Choose one:
+
+A) Use port 8888 directly (FREE, works now):
+   → Open port 8888 in firewall
+   → Access: http://scraper.aaziko.com:8888
+
+B) Use ngrok with your domain (PAID, easiest):
+   → Upgrade ngrok
+   → Configure CNAME
+   → Access: https://scraper.aaziko.com
+
+C) Configure Coolify (FREE, complex):
+   → Add service in Coolify
+   → Configure Traefik
+   → Access: https://scraper.aaziko.com
+
+
+MY RECOMMENDATION:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+→ Use Option B: Ngrok with your domain
+
+Why?
+✅ Avoids Traefik conflicts
+✅ Automatic SSL
+✅ Easy setup
+✅ Professional
+✅ Worth $8/month to avoid complexity
+
+═══════════════════════════════════════════════════════════════

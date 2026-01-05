@@ -69,9 +69,9 @@ echo "========================================="
 echo "  Starting Services"
 echo "========================================="
 
-# Kill any existing processes on port 1080
-echo "Checking for existing processes on port 1080..."
-lsof -ti:1080 | xargs kill -9 2>/dev/null
+# Kill any existing processes on port 8888
+echo "Checking for existing processes on port 8888..."
+lsof -ti:8888 | xargs kill -9 2>/dev/null
 sleep 1
 
 # Start Celery worker in background
@@ -87,7 +87,7 @@ sleep 3
 # Start FastAPI server
 echo ""
 echo -e "${YELLOW}Starting FastAPI server...${NC}"
-uvicorn core.main:app --host 0.0.0.0 --port 1080 > logs/fastapi.log 2>&1 &
+uvicorn core.main:app --host 0.0.0.0 --port 8888 > logs/fastapi.log 2>&1 &
 FASTAPI_PID=$!
 echo -e "${GREEN}✓${NC} FastAPI server started (PID: $FASTAPI_PID)"
 
@@ -97,7 +97,7 @@ echo "Waiting for server to start..."
 sleep 5
 
 # Check if server is running
-if curl -s http://localhost:1080/api/v1/health > /dev/null 2>&1; then
+if curl -s http://localhost:8888/api/v1/health > /dev/null 2>&1; then
     echo -e "${GREEN}✓${NC} Server is running successfully!"
 else
     echo -e "${YELLOW}⚠${NC}  Server might still be starting..."
@@ -109,7 +109,7 @@ echo "  Services Started Successfully!"
 echo "========================================="
 echo ""
 echo "📋 Service Information:"
-echo "  • FastAPI Server: http://localhost:1080"
+echo "  • FastAPI Server: http://localhost:8888"
 echo "  • TradeMap Form:  file://$(pwd)/trademap_form.html"
 echo "  • Celery Worker:  Running (PID: $CELERY_PID)"
 echo ""

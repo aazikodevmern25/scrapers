@@ -1,0 +1,197 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║                   MacMap Scraper Status - January 5, 2026                   ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+
+🌐 NEW NGROK URL (After Server Restart):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ NEW URL: https://aa1024a44b99.ngrok-free.app
+
+Use these forms:
+
+📋 Regular MacMap Tariff Form:
+   https://aa1024a44b99.ngrok-free.app/static/macmap_tariff_form.html
+
+📋 Full Tariff Form:
+   https://aa1024a44b99.ngrok-free.app/static/macmap_full_tariff_form.html
+
+📊 API Documentation:
+   https://aa1024a44b99.ngrok-free.app/docs
+
+
+📊 CURRENT STATUS (Jan 5, 11:17 AM):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ngrok:          ✅ Running (new URL active)
+FastAPI:        ✅ Running on port 8888
+Workers:        ❌ Stopped (0 workers)
+Queue:          ✅ Empty (0 tasks)
+Database:       📊 3,280 documents (unchanged)
+MacMap API:     ❌ STILL DOWN (HTTP 000)
+
+
+❌ CRITICAL ISSUE - MacMap API STILL DOWN:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+MacMap API Status: DOWN (since Jan 3)
+  • HTTP Status: 000 (no connection)
+  • Server not responding
+  • Been down for 2+ days
+
+This means:
+  ❌ Cannot scrape any data right now
+  ❌ Even if you create tasks, they will fail
+  ❌ Workers cannot fetch data from MacMap
+  ❌ No new data will be saved
+
+
+✅ WHAT'S WORKING:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. ✅ ngrok URL is working (new URL after restart)
+2. ✅ FastAPI server is running
+3. ✅ Forms are accessible
+4. ✅ You can create tasks
+5. ✅ Database is accessible
+
+
+❌ WHAT'S NOT WORKING:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. ❌ MacMap API is DOWN (main issue)
+2. ❌ Workers are stopped (no point running if API is down)
+3. ❌ Cannot scrape data (API not responding)
+4. ❌ Data count not increasing (stuck at 3,280)
+
+
+🔍 TEST IF SCRAPER WILL WORK TODAY:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Step 1: Check MacMap API Status
+────────────────────────────────────────────────────────────────────────────
+./check_macmap_api.sh
+
+Current Result: ❌ FAILED! MacMap API is DOWN
+
+This means scraper WILL NOT WORK today until API comes back online.
+
+
+Step 2: If API Shows "✅ WORKING" (Not Yet!)
+────────────────────────────────────────────────────────────────────────────
+When API is back online:
+
+1. Start workers:
+   ./start_macmap_workers.sh
+
+2. Create test task via form:
+   https://aa1024a44b99.ngrok-free.app/static/macmap_tariff_form.html
+
+3. Monitor data count:
+   python3 -c "from pymongo import MongoClient; import os; from dotenv import load_dotenv; load_dotenv(); client = MongoClient(os.getenv('MONGO_URI')); db = client[os.getenv('MONGO_DB')]; print(f'{db.macmap_tariff.count_documents({})} documents')"
+
+4. If count increases → Scraper is working! ✅
+
+
+📋 WHAT TO DO NOW:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Option 1: Wait for MacMap API (RECOMMENDED)
+────────────────────────────────────────────────────────────────────────────
+Check API status every few hours:
+
+  ./check_macmap_api.sh
+
+When you see "✅ SUCCESS! MacMap API is WORKING":
+  1. Run: ./start_macmap_workers.sh
+  2. Use form: https://aa1024a44b99.ngrok-free.app/static/macmap_tariff_form.html
+  3. Submit small batch (500-1000 tasks)
+  4. Monitor data count
+
+
+Option 2: Try Creating Test Task Now (Will Fail)
+────────────────────────────────────────────────────────────────────────────
+You can try, but it will fail because API is down:
+
+1. Go to: https://aa1024a44b99.ngrok-free.app/static/macmap_tariff_form.html
+2. Create 1-2 test tasks
+3. Start workers: ./start_macmap_workers.sh
+4. Check logs: tail -f logs/celery_macmap_tariff_worker1.log
+
+You will see:
+  [ERROR] MacMap API request failed after retries
+  [ERROR] Failed to fetch data from MacMap API
+
+This confirms API is still down.
+
+
+🎯 DIRECT ANSWER TO YOUR QUESTIONS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Q: "Give me new ngrok URL"
+A: ✅ https://aa1024a44b99.ngrok-free.app
+
+Q: "Is scraper working today?"
+A: ❌ NO - MacMap API is still DOWN (same issue as Jan 3)
+
+Q: "Can I create tasks?"
+A: ✅ YES - Form works, tasks will be created
+   ❌ BUT - Tasks will fail because API is down
+
+Q: "Will data save?"
+A: ❌ NO - Not until MacMap API comes back online
+
+
+⏰ TIMELINE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Jan 3: MacMap API went down
+Jan 5: MacMap API still down (2+ days)
+Status: Unknown when API will be back
+
+MacMap.org might be:
+  • Doing maintenance
+  • Having technical issues
+  • Experiencing server problems
+
+No way to know when they'll fix it.
+
+
+✅ QUICK TEST WORKFLOW:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Every few hours, run:
+  ./check_macmap_api.sh
+
+If "✅ WORKING":
+  1. ./start_macmap_workers.sh
+  2. Go to: https://aa1024a44b99.ngrok-free.app/static/macmap_tariff_form.html
+  3. Submit 2-3 test tasks
+  4. Wait 5 minutes
+  5. Check: python3 -c "from pymongo import MongoClient; import os; from dotenv import load_dotenv; load_dotenv(); client = MongoClient(os.getenv('MONGO_URI')); db = client[os.getenv('MONGO_DB')]; print(f'{db.macmap_tariff.count_documents({})} documents')"
+  6. If count increases → Working! ✅
+
+If "❌ DOWN":
+  Wait and check again later
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+                    📋 SUMMARY - January 5, 2026
+
+New ngrok URL: ✅ https://aa1024a44b99.ngrok-free.app
+Forms working: ✅ YES
+MacMap API: ❌ DOWN (2+ days)
+Scraper working: ❌ NO (waiting for API)
+
+Action: Check ./check_macmap_api.sh every few hours
+When API back: ./start_macmap_workers.sh and test
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Generated: Jan 5, 2026 at 11:18 AM
+Status: Forms ready, waiting for MacMap API to come back online
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

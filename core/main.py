@@ -28,6 +28,7 @@ from celery_app.tasks import (
     scrape_macmap_competitors,
     scrape_macmap_products,
     scrape_tariff_full,
+    scrape_trade_agreements,
     batch_scrape_tariffs,
     comprehensive_country_analysis,
     scrape_indian_trade_portal,
@@ -178,6 +179,12 @@ class ProductsRequest(BaseModel):
 class FullTariffRequest(BaseModel):
     country: str = Field(..., description="Country name")
 
+class TradeAgreementsRequest(BaseModel):
+    country: str = Field(..., description="Country name")
+
+class TradeAgreementsBulkRequest(BaseModel):
+    countries: List[str] = Field(..., description="List of countries to scrape trade agreements data")
+
 class BatchTariffRequest(BaseModel):
     country_pairs: List[List[str]] = Field(..., description="List of [country1, country2] pairs")
     year: int = Field(..., description="Target year")
@@ -291,6 +298,7 @@ async def api_info():
             "competitors": "/api/v1/scrape/competitors",
             "products": "/api/v1/scrape/products",
             "full-tariff": "/api/v1/scrape/full-tariff",
+            "trade-agreements": "/api/v1/scrape/trade-agreements",
             "batch": "/api/v1/scrape/batch",
             "comprehensive": "/api/v1/scrape/comprehensive",
             "indian-trade-portal": "/api/v1/scrape/indian-trade-portal",
@@ -306,6 +314,15 @@ async def api_info():
 @app.get("/trademap-form")
 async def trademap_form(request: Request):
     return templates.TemplateResponse("trademap_form.html", {"request": request})
+
+@app.get("/eximpedia-form")
+async def eximpedia_form(request: Request):
+    return templates.TemplateResponse("eximpedia_form.html", {"request": request})
+
+@app.get("/trade-agreements-form")
+async def trade_agreements_form(request: Request):
+    from fastapi.responses import FileResponse
+    return FileResponse("static/macmap_trade_agreements_form.html")
 
 @app.get("/health")
 async def health_check():
@@ -595,6 +612,43 @@ async def scrape_full_tariff(request: FullTariffRequest):
         logger.error(f"Error queueing full tariff task: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/v1/scrape/trade-agreements", response_model=TaskResponse)
+async def scrape_trade_agreements_api(request: TradeAgreementsRequest):
+    try:
+        task = scrape_trade_agreements.delay(request.country)
+        logger.info(f"Queued trade agreements task: {task.id}")
+        return TaskResponse(
+            task_id=task.id,
+            status="queued",
+            message=f"Trade Agreements scraping task queued for {request.country}"
+        )
+    except Exception as e:
+        logger.error(f"Error queueing trade agreements task: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/scrape/trade-agreements/bulk")
+async def scrape_trade_agreements_bulk_api(request: TradeAgreementsBulkRequest):
+    """
+    Create bulk Trade Agreements scraping tasks for multiple countries.
+    """
+    try:
+        task_ids = []
+        for country in request.countries:
+            task = scrape_trade_agreements.delay(country)
+            task_ids.append(task.id)
+            logger.info(f"Queued Trade Agreements task: {task.id} for country: {country}")
+        
+        return {
+            "success": True,
+            "message": f"Created {len(task_ids)} Trade Agreements scraping tasks",
+            "total_tasks": len(task_ids),
+            "task_ids": task_ids,
+            "countries": request.countries
+        }
+    except Exception as e:
+        logger.error(f"Error queueing Trade Agreements bulk tasks: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/v1/scrape/batch", response_model=TaskResponse)
 async def scrape_batch_tariffs(request: BatchTariffRequest):
     try:
@@ -672,6 +726,25 @@ async def scrape_trademap_bulk_api(request: TradeMapBulkRequest):
         = Creates 2 × 2 × 2 = 8 tasks (all combinations)
     """
     try:
+        # Auto-start workers if not running
+        import subprocess
+        workers_check = subprocess.run(
+            "ps aux | grep 'celery.*trademap' | grep -v grep | wc -l",
+            shell=True, capture_output=True, text=True
+        )
+        workers_running = int(workers_check.stdout.strip())
+        
+        if workers_running == 0:
+            logger.info("TradeMap workers not running. Starting workers automatically...")
+            subprocess.Popen(
+                "cd /home/aaziko/scrapers && celery -A celery_app.tasks worker --loglevel=info -Q trademap --concurrency=20 --logfile=logs/celery_trademap.log --detach",
+                shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+            await asyncio.sleep(3)  # Wait for workers to start
+            logger.info("TradeMap workers started automatically")
+        else:
+            logger.info(f"TradeMap workers already running ({workers_running} workers)")
+        
         task_ids = []
         total_tasks = len(request.hscodes) * len(request.exporting_countries) * len(request.importing_countries)
         
@@ -2600,6 +2673,77 @@ async def generate_payload(request: PayloadGenerationRequest):
         return {
             "success": False,
             "message": f"Failed to start payload generation: {str(e)}"
+        }
+
+@app.post("/api/v1/tasks/create")
+async def create_tasks_from_payloads(request: Dict[str, Any] = Body(...)):
+    """Queue pending tasks from MongoDB to Celery workers"""
+    try:
+        scraper_id = request.get("scraper_id")
+        
+        if not scraper_id:
+            return {
+                "success": False,
+                "message": "scraper_id is required"
+            }
+        
+        # Get pending tasks from MongoDB
+        from shared.task_creator_utils.mongodb_base import get_database
+        db = get_database()
+        collection = db["scraper_tasks"]
+        
+        # Find pending tasks for this scraper
+        pending_tasks = list(collection.find({
+            "scraper": scraper_id,
+            "status": "pending"
+        }).limit(100))
+        
+        if not pending_tasks:
+            return {
+                "success": True,
+                "message": "No pending tasks to process",
+                "tasks_queued": 0,
+                "scraper_id": scraper_id
+            }
+        
+        # Queue tasks to Celery based on scraper type
+        queued_count = 0
+        
+        if scraper_id == "eximpedia":
+            from celery_app.tasks import eximpedia_scraper_task
+            
+            for task in pending_tasks:
+                payload = task.get('payload', {})
+                
+                # Queue to Celery
+                celery_task = eximpedia_scraper_task.delay(
+                    start_date=payload.get('start_date'),
+                    end_date=payload.get('end_date'),
+                    hscode=payload.get('hscode'),
+                    country=payload.get('country'),
+                    mode=payload.get('mode')
+                )
+                
+                # Update MongoDB task status
+                collection.update_one(
+                    {'_id': task['_id']},
+                    {'$set': {'status': 'processing', 'task_id': celery_task.id}}
+                )
+                
+                queued_count += 1
+        
+        return {
+            "success": True,
+            "message": f"Tasks queued successfully to {scraper_id} workers",
+            "tasks_queued": queued_count,
+            "scraper_id": scraper_id
+        }
+        
+    except Exception as e:
+        logger.error(f"Error queuing tasks: {str(e)}")
+        return {
+            "success": False,
+            "message": f"Failed to queue tasks: {str(e)}"
         }
 
 @app.get("/api/v1/payload/stats")

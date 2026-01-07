@@ -118,7 +118,7 @@ class MongoDBScraperBase:
                 "payload": payload,
                 "payload_json": json.dumps(payload),  # For compatibility
                 "task_id": "",
-                "status": "",
+                "status": "pending",
                 "retry_count": 0,
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow()
@@ -136,17 +136,18 @@ class MongoDBScraperBase:
         docs = []
         now = datetime.utcnow()
         for endpoint, payload in tasks_data:
-            docs.append({
+            doc = {
                 "scraper": self.scraper_name,
                 "endpoint": endpoint,
                 "payload": payload,
                 "payload_json": json.dumps(payload),
                 "task_id": "",
-                "status": "",
+                "status": "pending",
                 "retry_count": 0,
                 "created_at": now,
                 "updated_at": now
-            })
+            }
+            docs.append(doc)
         
         try:
             # ordered=False allows continuing after duplicate errors

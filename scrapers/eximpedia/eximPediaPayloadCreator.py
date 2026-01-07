@@ -227,7 +227,7 @@ if __name__ == "__main__":
             
             creator = EximPediaPayloadCreator(
                 scraper_id='eximpedia',
-                scraper_name='EximPedia',
+                scraper_name='eximpedia',
                 unique_fields=['start_date', 'end_date', 'hscode', 'country', 'mode'],
                 endpoint=ENDPOINT
             )
@@ -272,7 +272,7 @@ if __name__ == "__main__":
         # Interactive mode
         creator = EximPediaPayloadCreator(
             scraper_id='eximpedia',
-            scraper_name='EximPedia',
+            scraper_name='eximpedia',
             unique_fields=['start_date', 'end_date', 'hscode', 'country', 'mode'],
             endpoint=ENDPOINT
         )

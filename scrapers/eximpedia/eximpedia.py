@@ -35,7 +35,7 @@ logger = logging.getLogger('eximpedia_scraper')
 # Get the directory of this file for relative paths
 _current_dir = Path(__file__).parent
 
-# Using db from utils (no need to recreate)
+# Using db from utils - connects to Dhruval database on 202.47.115.6:27017
 exCollection = db['eximpedia']
 
 headers = {
@@ -103,15 +103,11 @@ def ParseDates(startDate, endDate):
         logger.debug(f"Parsing dates: {startDate} to {endDate}")
         startDate = datetime.datetime.strptime(startDate, '%m/%d/%Y')
         endDate = datetime.datetime.strptime(endDate, '%m/%d/%Y')
-        startDate1 = startDate - datetime.timedelta(days=1)
-        endDate1 = endDate - datetime.timedelta(days=1)
-        startDate1 = startDate1.strftime('%Y-%m-%d')
-        endDate1 = endDate1.strftime('%Y-%m-%d')
         startDate = startDate.strftime('%Y-%m-%d')
         endDate = endDate.strftime('%Y-%m-%d')
         
-        logger.info(f"Dates parsed successfully: {startDate} to {endDate}, offset dates: {startDate1} to {endDate1}")
-        return startDate, endDate, startDate1, endDate1
+        logger.info(f"Dates parsed successfully: {startDate} to {endDate}")
+        return startDate, endDate
     except Exception as e:
         logger.error(f"Date parsing failed for {startDate} to {endDate}: {e}")
         raise
@@ -168,12 +164,7 @@ def GetTaxonomyData(sess, country, mode):
         )
         logger.info(f"Taxonomy request: {req.url} - Status: {req.status_code}")
         
-        if req.status_code != 200:
-            logger.error(f"Taxonomy request failed with status {req.status_code}")
-            logger.error(f"Response text: {req.text[:500]}")
-            return None
-        
-        # Log the raw response for debugging
+        # Eximpedia returns encrypted data even with 401 status - check for cryptexim field
         response_json = req.json()
         logger.debug(f"Raw response keys: {response_json.keys()}")
         
@@ -213,7 +204,7 @@ def GetTaxonomyData(sess, country, mode):
         return None
 
 
-def BuildRequestPayload(auth_data, taxonomy_info, sd, ed, sd1, ed1, hsc, country, mode):
+def BuildRequestPayload(auth_data, taxonomy_info, sd, ed, hsc, country, mode, page_start=0, page_length=1000):
     try:
         logger.info(f"Building request payload for {country.upper()} - {mode.upper()}")
         logger.debug(f"Date range: {sd} to {ed}")
@@ -246,9 +237,11 @@ def BuildRequestPayload(auth_data, taxonomy_info, sd, ed, sd1, ed1, hsc, country
         rp['matchExpressions'][0]['fieldValueLeft'] = sd
         rp['matchExpressions'][0]['fieldValueRight'] = ed
         rp['matchExpressions'][0]["dividedDateRange"] = [
-            {"leftFieldvalueHot": sd, "rightFieldValueHot": ed1},
-            {"leftFieldvalue": sd1, "rightFieldValue": sd1}
+            {"leftFieldvalueHot": sd, "rightFieldValueHot": ed}
         ]
+        
+        rp['start'] = page_start
+        rp['length'] = page_length
         
         rp['accountId'] = auth_data['customerId']
         rp['userId'] = auth_data['userId']
@@ -280,7 +273,7 @@ def BuildRequestPayload(auth_data, taxonomy_info, sd, ed, sd1, ed1, hsc, country
 
 def ExecuteAPIRequest(sess, payload):
     try:
-        logger.info("Executing main API request")
+        logger.info(f"Executing API request (start: {payload.get('start', 0)}, length: {payload.get('length', 1000)})")
         
         req = sess.post(
             'https://web.eximpedia.app/backend/trade/shipments/explore/records',
@@ -302,8 +295,8 @@ def ExecuteAPIRequest(sess, payload):
         response = decrypt_exim_data(req.json()['cryptexim'])
         
         record_count = len(response.get('data', []))
-        logger.info(f"API request successful - Retrieved {record_count} records")
-        
+        total_records = response.get('recordsTotal', record_count)
+        logger.info(f"API request successful - Retrieved {record_count} records (Total available: {total_records})")
         return response
     except Exception as e:
         logger.error(f"API request execution failed: {e}")
@@ -316,19 +309,21 @@ def SaveToDatabase(response_data, hsc, country, mode):
         logger.info(f"Saving data to database for {country} - {mode}")
         
         data = {
-            "ScraperName": "eximpedia_scraper",
-            "HsCode": hsc,
-            "ProductName": '',
-            "ImportingCountry": country.title() if mode == 'import' else 'Unknown',
-            "ExportingCountry": country.title() if mode == 'export' else 'Unknown',
-            "Source": "Eximpedia",
-            "TargetYear": None,
-            "Mode": mode.title(),
-            "Month": datetime.datetime.now().strftime("%b"),
-            "Year": datetime.datetime.now().strftime("%Y"),
-            "Data": response_data,
-            "DateCreated": datetime.datetime.now(),
-            "DateUpdated": datetime.datetime.now()
+            "scraper_name": "eximpedia_scraper",
+            "hscode": hsc,
+            "product_name": "",
+            "importing_country": "Unknown",
+            "exporting_country": country,
+            "source": "Eximpedia",
+            "target_year": None,
+            "mode": mode.lower(),
+            "month": datetime.datetime.now().strftime("%b"),
+            "year": datetime.datetime.now().strftime("%Y"),
+            "data": response_data.get('data', []),
+            "record_count": len(response_data.get('data', [])),
+            "country": country,
+            "date_created": datetime.datetime.now(),
+            "date_updated": datetime.datetime.now()
         }
         
         result = exCollection.insert_one(data)
@@ -343,7 +338,7 @@ def SaveToDatabase(response_data, hsc, country, mode):
 
 
 
-def ScrapeEximpedia(sd, ed, sd1, ed1, hsc, country, mode):
+def ScrapeEximpedia(sd, ed, hsc, country, mode):
     try:
         logger.info(f"=== Starting Eximpedia scraping ===")
         logger.info(f"Parameters: HS Code: {hsc}, Country: {country}, Mode: {mode}")
@@ -358,24 +353,44 @@ def ScrapeEximpedia(sd, ed, sd1, ed1, hsc, country, mode):
         if not taxonomy_info:
             logger.error("Taxonomy data retrieval failed, aborting scraping")
             return "Taxonomy Failed"
-        # SearchHsCode(auth_data,taxonomy_info,sd,ed,sd1,ed1,hsc,country,mode)
-        payload = BuildRequestPayload(auth_data, taxonomy_info, sd, ed, sd1, ed1, hsc, country, mode)
-        if not payload:
-            logger.error("Payload building failed, aborting scraping")
-            return "Payload Build Failed"
+        
+        # Fetch all records with pagination
+        all_records = []
+        page_start = 0
+        page_size = 1000
+        
+        while True:
+            payload = BuildRequestPayload(auth_data, taxonomy_info, sd, ed, hsc, country, mode, page_start, page_size)
+            if not payload:
+                logger.error("Payload building failed, aborting scraping")
+                return "Payload Build Failed"
+                
+            response_data = ExecuteAPIRequest(sess, payload)
+            if not response_data:
+                logger.error("API request failed, aborting scraping")
+                return "API Request Failed"
             
-        response_data = ExecuteAPIRequest(sess, payload)
-        print(response_data)
-        if not response_data:
-            logger.error("API request failed, aborting scraping")
-            return "API Request Failed"
+            current_records = response_data.get('data', [])
+            all_records.extend(current_records)
             
-        saved_id = SaveToDatabase(response_data, hsc, country, mode)
+            total_available = response_data.get('recordsTotal', len(current_records))
+            logger.info(f"Fetched {len(all_records)} of {total_available} total records")
+            
+            # Break if we got all records or less than page size (last page)
+            if len(current_records) < page_size or len(all_records) >= total_available:
+                break
+                
+            page_start += page_size
+        
+        # Save all collected records
+        final_response = {'data': all_records}
+        saved_id = SaveToDatabase(final_response, hsc, country, mode)
         if not saved_id:
             logger.error("Database save failed")
             return "Database Save Failed"
             
         logger.info(f"=== Eximpedia scraping completed successfully ===")
+        logger.info(f"Total records scraped: {len(all_records)}")
         logger.info(f"MongoDB ID: {saved_id}")
         
         return "Success"
@@ -423,22 +438,39 @@ def ScrapeEximpediaBatch(lst_of_dict):
             start_date, end_date, hscode, country, mode = lod['start_date'], lod['end_date'], lod['hscode'], lod['country'], lod['mode']
             taxonomy_info = GetTaxonomyData(sess, country, mode)
             
-            sd,ed,sd1,ed1 = ParseDates(start_date,end_date)
+            sd, ed = ParseDates(start_date, end_date)
             if not taxonomy_info:
                 logger.error("Taxonomy data retrieval failed, aborting scraping")
                 return "Taxonomy Failed"
+            
+            # Fetch with pagination
+            all_records = []
+            page_start = 0
+            page_size = 1000
+            
+            while True:
+                payload = BuildRequestPayload(auth_data, taxonomy_info, sd, ed, hscode, country, mode, page_start, page_size)
+                if not payload:
+                    logger.error("Payload building failed, aborting scraping")
+                    return "Payload Build Failed"
+                    
+                response_data = ExecuteAPIRequest(sess, payload)
+                if not response_data:
+                    logger.error("API request failed, aborting scraping")
+                    return "API Request Failed"
                 
-            payload = BuildRequestPayload(auth_data, taxonomy_info, sd, ed, sd1, ed1, hscode, country, mode)
-            if not payload:
-                logger.error("Payload building failed, aborting scraping")
-                return "Payload Build Failed"
+                current_records = response_data.get('data', [])
+                all_records.extend(current_records)
                 
-            response_data = ExecuteAPIRequest(sess, payload)
-            if not response_data:
-                logger.error("API request failed, aborting scraping")
-                return "API Request Failed"
+                total_available = response_data.get('recordsTotal', len(current_records))
                 
-            saved_id = SaveToDatabase(response_data, hscode, country, mode)
+                if len(current_records) < page_size or len(all_records) >= total_available:
+                    break
+                    
+                page_start += page_size
+            
+            final_response = {'data': all_records}
+            saved_id = SaveToDatabase(final_response, hscode, country, mode)
             if not saved_id:
                 logger.error("Database save failed")
                 return "Database Save Failed"

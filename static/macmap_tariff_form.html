@@ -304,7 +304,7 @@
             responseDiv.style.display = 'none';
 
             try {
-                const response = await fetch('http://localhost:8888/api/v1/scrape/tariff/bulk', {
+                const response = await fetch('/api/v1/scrape/tariff/bulk', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

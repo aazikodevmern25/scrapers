@@ -613,6 +613,14 @@ class PayloadService:
         env['PROGRAMMATIC_MODE'] = 'true'
         env['PAYLOAD_CONFIG'] = json.dumps(config)
         
+        # Explicitly pass MongoDB credentials from environment
+        # Load from .env if not already in environment
+        if 'MONGO_URI' not in env or not env['MONGO_URI']:
+            from dotenv import load_dotenv
+            load_dotenv(data_extractor_dir / '.env')
+            env['MONGO_URI'] = os.getenv('MONGO_URI', 'mongodb://admin:Aaziko%21%40%23123@202.47.115.6:27017/?authSource=admin')
+            env['MONGO_DB'] = os.getenv('MONGO_DB', 'Dhruval')
+        
         logger.info(f"PAYLOAD_CONFIG being passed: {env['PAYLOAD_CONFIG']}")
         
         # Ensure PYTHONPATH includes the data-extractor directory
@@ -623,6 +631,7 @@ class PayloadService:
         logger.info(f"Working directory: {data_extractor_dir}")
         logger.info(f"PYTHONPATH: {env.get('PYTHONPATH', 'NOT SET')}")
         logger.info(f"MONGO_URI: {env.get('MONGO_URI', 'NOT SET')[:50]}...")
+        logger.info(f"MONGO_DB: {env.get('MONGO_DB', 'NOT SET')}")
         
         result = subprocess.run(
             [sys.executable, str(script_path)],

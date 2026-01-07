@@ -1,0 +1,78 @@
+# MacMap Trade Agreements Scraper
+
+## Form URL
+https://5060e3a58fb3.ngrok-free.app/trade-agreements-form
+
+## API Endpoints
+
+### Single Country
+POST https://5060e3a58fb3.ngrok-free.app/api/v1/scrape/trade-agreements
+Content-Type: application/json
+Body: {"country": "China"}
+
+### Multiple Countries
+POST https://5060e3a58fb3.ngrok-free.app/api/v1/scrape/trade-agreements/bulk
+Content-Type: application/json
+Body: {"countries": ["China", "India", "Japan"]}
+
+## How to Use
+
+1. Open the form URL in your browser
+2. Select countries from the dropdown or enter comma-separated names
+3. Click "Generate Payload"
+4. Tasks will be created and processed
+5. Data appears in MongoDB as FTAs are found (real-time)
+
+## MongoDB Connection
+
+Server: 202.47.115.6:27017
+Database: Dhruval
+Collection: macmap_trade_agreements
+Username: admin
+Password: Aaziko!@#123
+
+## Check Data
+
+```python
+from pymongo import MongoClient
+import urllib.parse
+
+username = urllib.parse.quote_plus("admin")
+password = "Aaziko!@#123"
+uri = f"mongodb://{username}:{urllib.parse.quote_plus(password)}@202.47.115.6:27017/?authSource=admin"
+client = MongoClient(uri)
+db = client['Dhruval']
+
+# Get FTAs for a country
+ftas = list(db['macmap_trade_agreements'].find({"country": "China", "partner_country": {"$exists": True}}))
+print(f"China has {len(ftas)} FTAs")
+
+for fta in ftas[:10]:
+    print(f"- {fta['agreement_name']} with {fta['partner_country']}")
+```
+
+## Worker Status
+
+Check if worker is running:
+```bash
+ps aux | grep trade_agreements_worker
+```
+
+View logs:
+```bash
+tail -f logs/celery_trade_agreements.log
+```
+
+## Expected Behavior
+
+- Task submission: Immediate
+- First FTA found: 1-2 minutes
+- Data in MongoDB: Real-time (as each FTA is found)
+- Total time: 20-40 minutes per country (checks 238 partner countries)
+
+## Notes
+
+- Worker is running and ready
+- Code is fixed (headers bug resolved)
+- FTAs save to MongoDB immediately as found
+- Form is accessible and functional

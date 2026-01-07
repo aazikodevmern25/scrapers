@@ -3,8 +3,12 @@ import json
 import re
 
 def parse_trademap_table_flexible(html_content):
+    import logging
+    logger = logging.getLogger(__name__)
+    
     # Handle None or empty content
     if not html_content:
+        logger.warning("parse_trademap_table_flexible: Received None or empty html_content")
         return {
             "format": "no_data",
             "trade_descriptions": [],
@@ -31,10 +35,15 @@ def parse_trademap_table_flexible(html_content):
     products = []
     data_rows = selector.xpath('//tr[@align="right"]')
     
+    logger.info(f"parse_trademap_table_flexible: Found {len(data_rows)} data rows, {len(years)} years, {len(trade_descriptions)} trade_descriptions")
+    
     for row in data_rows:
         product = parse_product_row_flexible(row, years, has_hs8_column, trade_descriptions)
         if product:
             products.append(product)
+    
+    if len(data_rows) == 0:
+        logger.warning("parse_trademap_table_flexible: No data rows found in table - table may be empty or have different format")
     
     return {
         "format": "multi_product" if has_hs8_column else "single_product",
@@ -68,11 +77,14 @@ def parse_product_row_flexible(row, years, has_hs8_column, trade_descriptions):
                 continue
             
             cell_text = cell.xpath('./text()').get()
-            try:
-                cell_text = cell_text.strip()
-                value = int(cell_text.replace(',', ''))
-                data_values.append(value)
-            except ValueError:
+            if cell_text:
+                try:
+                    cell_text = cell_text.strip()
+                    value = int(cell_text.replace(',', ''))
+                    data_values.append(value)
+                except ValueError:
+                    data_values.append(0)
+            else:
                 data_values.append(0)
         
         num_years = len(years)

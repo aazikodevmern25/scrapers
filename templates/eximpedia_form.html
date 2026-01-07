@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eximpedia Configuration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .header-icon {
+            font-size: 32px;
+            margin-right: 15px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        input[type="text"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #f5576c;
+            box-shadow: 0 0 0 3px rgba(245, 87, 108, 0.1);
+        }
+
+        select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 20px;
+            padding-right: 40px;
+        }
+
+        .example {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .info-note {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 12px;
+            margin-bottom: 25px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #856404;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(245, 87, 108, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .response {
+            margin-top: 25px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .response.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .response.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .task-info {
+            margin-top: 10px;
+            font-size: 13px;
+        }
+
+        .task-info div {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <span class="header-icon">📦</span>
+            <div>
+                <h1>Eximpedia Configuration</h1>
+                <p class="subtitle">Fill in the details to generate tasks</p>
+            </div>
+        </div>
+
+        <div class="info-note">
+            <strong>📝 Note:</strong> Enter dates in MM/DD/YYYY format or just YYYY. If left empty, current year will be used. Date ranges will automatically be split into 15-day chunks for optimal processing.
+        </div>
+
+        <form id="scrapeForm">
+            <div class="form-group">
+                <label for="hscode">HS Codes</label>
+                <input type="text" id="hscode" name="hscode" placeholder="Enter 6-digit HS codes separated by commas (e.g., 010121, 010129)" required>
+                <div class="example">Enter one or multiple 6-digit HS codes separated by commas</div>
+            </div>
+
+            <div class="form-group">
+                <label for="country">Country</label>
+                <select id="country" name="country" required>
+                    <option value="">Select one country</option>
+                    <option value="India">India</option>
+                    <option value="United States">United States</option>
+                    <option value="China">China</option>
+                    <option value="United Kingdom">United Kingdom</option>
+                    <option value="Germany">Germany</option>
+                    <option value="Japan">Japan</option>
+                    <option value="France">France</option>
+                    <option value="Canada">Canada</option>
+                    <option value="Australia">Australia</option>
+                    <option value="Brazil">Brazil</option>
+                    <option value="South Korea">South Korea</option>
+                    <option value="Italy">Italy</option>
+                    <option value="Spain">Spain</option>
+                    <option value="Mexico">Mexico</option>
+                    <option value="Indonesia">Indonesia</option>
+                    <option value="Netherlands">Netherlands</option>
+                    <option value="Saudi Arabia">Saudi Arabia</option>
+                    <option value="Turkey">Turkey</option>
+                    <option value="Switzerland">Switzerland</option>
+                    <option value="Poland">Poland</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="mode">Trade Type</label>
+                <select id="mode" name="mode" required>
+                    <option value="">Select trade type</option>
+                    <option value="import">Import</option>
+                    <option value="export">Export</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="start_date">Start Date</label>
+                <input type="text" id="start_date" name="start_date" placeholder="MM/DD/YYYY or YYYY (e.g., 01/01/2020 or 2020)">
+                <div class="example">Format: MM/DD/YYYY or just the year (YYYY)</div>
+            </div>
+
+            <div class="form-group">
+                <label for="end_date">End Date</label>
+                <input type="text" id="end_date" name="end_date" placeholder="MM/DD/YYYY or YYYY (e.g., 12/31/2024 or 2024)">
+                <div class="example">Format: MM/DD/YYYY or just the year (YYYY)</div>
+            </div>
+
+            <button type="submit" id="submitBtn">
+                <span id="btnText">▶ Generate Payload</span>
+            </button>
+        </form>
+
+        <div id="response" class="response"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById('scrapeForm');
+        const responseDiv = document.getElementById('response');
+        const submitBtn = document.getElementById('submitBtn');
+        const btnText = document.getElementById('btnText');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Get form values
+            const hscodes = document.getElementById('hscode').value
+                .split(',')
+                .map(s => s.trim())
+                .filter(s => s.length > 0);
+            
+            const country = document.getElementById('country').value;
+            const mode = document.getElementById('mode').value;
+            let start_date = document.getElementById('start_date').value.trim();
+            let end_date = document.getElementById('end_date').value.trim();
+
+            // Process dates - convert YYYY to MM/DD/YYYY format
+            const currentYear = new Date().getFullYear();
+            
+            if (!start_date) {
+                start_date = `01/01/${currentYear}`;
+            } else if (start_date.length === 4 && !isNaN(start_date)) {
+                start_date = `01/01/${start_date}`;
+            }
+            
+            if (!end_date) {
+                end_date = `12/31/${currentYear}`;
+            } else if (end_date.length === 4 && !isNaN(end_date)) {
+                end_date = `12/31/${end_date}`;
+            }
+
+            // Prepare payload config for payload generation
+            const config = {
+                hscodes: hscodes,
+                countries: country,
+                mode: mode,
+                start_date: start_date,
+                end_date: end_date
+            };
+
+            // Disable form
+            submitBtn.disabled = true;
+            btnText.innerHTML = '<span class="spinner"></span>Generating Tasks...';
+            responseDiv.style.display = 'none';
+
+            try {
+                // Get the API base URL from the current location
+                const apiBaseUrl = window.location.origin;
+                
+                // First, generate payloads
+                const payloadResponse = await fetch(`${apiBaseUrl}/api/v1/payload/generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        payload_type: 'eximpedia',
+                        config: config
+                    })
+                });
+
+                const payloadData = await payloadResponse.json();
+
+                if (!payloadResponse.ok) {
+                    throw new Error(payloadData.message || 'Failed to generate payloads');
+                }
+
+                // Then, create tasks from payloads
+                btnText.innerHTML = '<span class="spinner"></span>Creating Tasks...';
+                
+                const taskResponse = await fetch(`${apiBaseUrl}/api/v1/tasks/create`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        scraper_id: 'eximpedia'
+                    })
+                });
+
+                const taskData = await taskResponse.json();
+
+                if (taskResponse.ok) {
+                    responseDiv.className = 'response success';
+                    responseDiv.innerHTML = `
+                        <strong>✅ Tasks Generated Successfully!</strong>
+                        <div class="task-info">
+                            <div><strong>Payloads Created:</strong> ${payloadData.payloads_created || 'N/A'}</div>
+                            <div><strong>Tasks Queued:</strong> ${taskData.tasks_created || 'Processing...'}</div>
+                            <div><strong>HS Codes:</strong> ${hscodes.join(', ')}</div>
+                            <div><strong>Country:</strong> ${country}</div>
+                            <div><strong>Trade Type:</strong> ${mode.toUpperCase()}</div>
+                            <div><strong>Date Range:</strong> ${start_date} to ${end_date}</div>
+                            <div style="margin-top: 10px; padding: 10px; background: #e7f3ff; border-radius: 4px;">
+                                <strong>ℹ️ Processing Details:</strong>
+                                <ul style="margin-left: 20px; margin-top: 5px;">
+                                    <li>Date ranges automatically split into 15-day chunks</li>
+                                    <li>Each task processes one chunk independently</li>
+                                    <li>Data will be saved to MongoDB (eximpedia collection)</li>
+                                    <li>Tasks run in parallel using Celery workers</li>
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(taskData.message || 'Failed to create tasks');
+                }
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.innerHTML = `
+                    <strong>❌ Error</strong>
+                    <div>${error.message}</div>
+                    <div style="margin-top: 10px; font-size: 12px;">
+                        <strong>Common issues:</strong>
+                        <ul style="margin-left: 20px; margin-top: 5px;">
+                            <li>FastAPI server not running (start with: uvicorn core.main:app --host 0.0.0.0 --port 1080)</li>
+                            <li>MongoDB or Redis not running</li>
+                            <li>Celery worker not started</li>
+                            <li>Invalid date format (use MM/DD/YYYY or YYYY)</li>
+                        </ul>
+                    </div>
+                `;
+            } finally {
+                responseDiv.style.display = 'block';
+                submitBtn.disabled = false;
+                btnText.textContent = '▶ Generate Payload';
+            }
+        });
+    </script>
+</body>
+</html>

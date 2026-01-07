@@ -1,0 +1,103 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║                   Webshare Proxy Setup for MacMap Scraper                   ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+
+📋 STEPS TO GET YOUR WEBSHARE PROXIES:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Step 1: Download Proxy List from Webshare
+────────────────────────────────────────────────────────────────────────────
+1. Go to: https://proxy2.webshare.io/
+2. Click "Proxy Server" in left menu
+3. Click "Download" button (top right)
+4. Select format: "Username:Password@Host:Port" or "Host:Port:Username:Password"
+5. Download the file
+
+
+Step 2: Save Proxies to Config File
+────────────────────────────────────────────────────────────────────────────
+Save the downloaded proxies to:
+  /home/aaziko/scrapers/config/webshare_proxies.txt
+
+Format should be (one per line):
+  IP:Port:Username:Password
+
+Example:
+  82.22.215.197:7828:fcvrogr:o3angl84R2
+  45.95.115.186:5597:fcvrogr:o3angl84R2
+
+
+Step 3: Test Proxies
+────────────────────────────────────────────────────────────────────────────
+Run test script:
+  cd /home/aaziko/scrapers
+  python3 test_webshare_proxy.py
+
+Expected output:
+  ✅ SUCCESS! Got X custom duty items
+
+
+Step 4: Update MacMap Scraper to Use Webshare Proxies
+────────────────────────────────────────────────────────────────────────────
+I'll modify the scraper to use Webshare proxies instead of old proxies.
+
+
+🔍 ALTERNATIVE: Get Proxy List via API
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+If you have Webshare API key:
+
+1. Go to: https://proxy2.webshare.io/userapi
+2. Copy your API key
+3. Run this command:
+
+curl -H "Authorization: Token YOUR_API_KEY" \
+  "https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page=1&page_size=100" \
+  -o webshare_proxies.json
+
+
+📝 WHAT TO PROVIDE ME:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Option 1: Download proxy list from Webshare dashboard
+  → Paste the content here or save to config/webshare_proxies.txt
+
+Option 2: Provide Webshare API key
+  → I'll download the proxies automatically
+
+Option 3: Provide proxy details from your dashboard
+  → Username: fcvrogr
+  → Password: o3angl84R2
+  → Proxy list (IP:Port format)
+
+
+⚠️  IMPORTANT NOTES:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Residential proxies are MUCH better than datacenter proxies for MacMap
+2. You have 2,500 proxies available (plenty for scraping)
+3. Webshare proxies rotate automatically
+4. These should bypass MacMap's anti-bot protection
+
+
+🎯 NEXT STEPS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Download your proxy list from Webshare
+2. Save to: config/webshare_proxies.txt
+3. Test with: python3 test_webshare_proxy.py
+4. If working, I'll update the main scraper
+5. Start workers and begin scraping
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Please provide either:
+  • Proxy list content (paste here)
+  • Webshare API key
+  • Or tell me the exact format you downloaded
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

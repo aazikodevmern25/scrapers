@@ -9,7 +9,8 @@ from scrapers.macmap import (
     ScrapeMacmapCompareMarket,
     ScrapeMacmapCompetitors,
     ScrapeMacmapProducts,
-    ScrapeTarrifFull
+    ScrapeTarrifFull,
+    ScrapeMacmapTradeAgreements
 )
 from scrapers.indiantradeportal import IndianTradePortalScrape
 from scrapers.trademap.trademap import ScrapeTrademap
@@ -48,6 +49,7 @@ app.conf.update(
         'celery_app.tasks.scrape_macmap_competitors': {'queue': 'macmap_competitors'},
         'celery_app.tasks.scrape_macmap_products': {'queue': 'macmap_products'},
         'celery_app.tasks.scrape_tariff_full': {'queue': 'tariff_full'},
+        'celery_app.tasks.scrape_trade_agreements': {'queue': 'trade_agreements'},
         'celery_app.tasks.scrape_indian_trade_portal': {'queue': 'indian_trade_portal'},
         'celery_app.tasks.trademap_scraper_task': {'queue': 'trademap'},
         'celery_app.tasks.eximpedia_scraper_task': {'queue': 'eximpedia'},
@@ -213,6 +215,26 @@ def scrape_tariff_full(self, country):
         logger.error(f"Error scraping full tariff: {str(exc)}")
         raise self.retry(exc=exc)
 
+@app.task(bind=True, autoretry_for=(Exception,), retry_kwargs={'max_retries': 2, 'countdown': 300})
+def scrape_trade_agreements(self, country):
+    try:
+        # Check if task should be paused before execution
+        if check_task_should_pause(self.request.id):
+            logger.info(f"Task {self.request.id} is paused, skipping execution")
+            raise TaskPausedException(f"Task {self.request.id} is paused")
+        
+        logger.info(f"Starting Trade Agreements scrape for country: {country}")
+        ScrapeMacmapTradeAgreements(country)
+        logger.info(f"Completed Trade Agreements scrape for country: {country}")
+        return {"status": "success", "country": country}
+    except TaskPausedException:
+        # Don't retry paused tasks
+        logger.info(f"Task {self.request.id} is paused, not retrying")
+        return {"status": "paused", "message": "Task execution paused"}
+    except Exception as exc:
+        logger.error(f"Error scraping trade agreements: {str(exc)}")
+        raise self.retry(exc=exc)
+
 # Group task for batch processing
 @app.task(bind=True)
 def batch_scrape_tariffs(self, country_pairs, year, hsc_codes):
@@ -301,17 +323,16 @@ def trademap_scraper_task(self, hscode, country1, country2):
         logger.error(f"Error scraping TradeMap: {str(exc)}")
         raise self.retry(exc=exc)
 
-@app.task(bind=True, autoretry_for=(Exception,), retry_kwargs={'max_retries': 2, 'countdown': 300})
-def eximpedia_scraper_task(self, start_date, end_date, hscode, country, mode):
+@app.task(name='celery_app.tasks.eximpedia_scraper_task', bind=True)
+def eximpedia_scraper_task(self, start_date: str, end_date: str, hscode: str, country: str, mode: str):
+    """
+    Celery task wrapper for Eximpedia scraping
+    """
+    logger.info(f"Starting Eximpedia scrape: {hscode}, {country}, {mode}, {start_date} to {end_date}")
+    
     try:
-        # Check if task should be paused before execution
-        if check_task_should_pause(self.request.id):
-            logger.info(f"Task {self.request.id} is paused, skipping execution")
-            raise TaskPausedException(f"Task {self.request.id} is paused")
-        
-        logger.info(f"Starting Eximpedia scrape: {hscode}, {country}, {mode}, {start_date} to {end_date}")
-        sd, ed, sd1, ed1 = ParseDates(start_date, end_date)
-        result = ScrapeEximpedia(sd, ed, sd1, ed1, hscode, country, mode)
+        sd, ed = ParseDates(start_date, end_date)
+        result = ScrapeEximpedia(sd, ed, hscode, country, mode)
         logger.info(f"Completed Eximpedia scrape: {result}")
         return {
             "status": "success" if result == "Success" else "failed",

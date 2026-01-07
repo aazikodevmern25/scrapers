@@ -13,9 +13,16 @@ load_dotenv()
 
 proxies = pd.read_csv('config/proxies.txt',names=['pr'])['pr'].to_list()
 
-def get_proxies():
-    # Enable proxies - IndiaMART blocks direct requests
-    pr = random.choice(proxies)
+# Load Webshare residential proxies (better for MacMap)
+try:
+    webshare_proxies = pd.read_csv('config/webshare_proxies.txt',names=['pr'])['pr'].to_list()
+except:
+    webshare_proxies = proxies
+
+def get_proxies(use_webshare=False):
+    # Use Webshare residential proxies for MacMap, regular proxies for others
+    proxy_list = webshare_proxies if use_webshare else proxies
+    pr = random.choice(proxy_list)
     parts = pr.split(':')
     host = parts[0]
     port = parts[1]
@@ -68,7 +75,7 @@ def SendPostRequests(url,headers,data,use_proxy=False):
     # Raise exception after all retries exhausted
     raise Exception(f"POST request failed after {max_retries} retries: {url}. Last error: {last_error}")
 
-def SendGetRequests(url,headers,use_proxy=True, max_403_retries=1):
+def SendGetRequests(url,headers,use_proxy=True, max_403_retries=1, use_webshare=False):
     retry = 0
     last_error = None
     max_retries = 3  # Reduced for faster processing
@@ -77,7 +84,7 @@ def SendGetRequests(url,headers,use_proxy=True, max_403_retries=1):
     while retry < max_retries:
         try:    
             if use_proxy:
-                auth, proxy = get_proxies()
+                auth, proxy = get_proxies(use_webshare=use_webshare)
                 req = requests.get(url, headers=headers, impersonate="chrome131",proxy_auth=auth,proxies=proxy,timeout=30)
             else:
                 req = requests.get(url, headers=headers, impersonate="chrome131",timeout=30)

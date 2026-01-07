@@ -30,7 +30,8 @@ from .macmap_tariff import (
     ScrapeMacmapCompareMarket,
     ScrapeMacmapCompetitors,
     ScrapeMacmapProducts,
-    ScrapeTarrifFull
+    ScrapeTarrifFull,
+    ScrapeMacmapTradeAgreements
 )
 
 __all__ = [
@@ -40,5 +41,6 @@ __all__ = [
     'ScrapeMacmapCompareMarket',
     'ScrapeMacmapCompetitors',
     'ScrapeMacmapProducts',
-    'ScrapeTarrifFull'
+    'ScrapeTarrifFull',
+    'ScrapeMacmapTradeAgreements'
 ]

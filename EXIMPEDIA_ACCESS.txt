@@ -1,0 +1,32 @@
+====================================================================
+EXIMPEDIA SCRAPER ACCESS INFORMATION
+Updated: Jan 7, 2026 at 10:48 AM
+🔑 ENCRYPTION KEY UPDATED - Ready for scraping!
+====================================================================
+
+🌐 EXIMPEDIA FORM:
+   https://18c603a21112.ngrok-free.app/eximpedia-form
+
+📊 API DOCUMENTATION:
+   https://18c603a21112.ngrok-free.app/docs
+
+💚 HEALTH CHECK:
+   https://18c603a21112.ngrok-free.app/api/v1/health
+
+🗄️  DATABASE:
+   MongoDB: 202.47.115.6:27017
+   Database: Dhruval
+   Collection: eximpedia
+
+📝 FORM FIELDS:
+   - HS Codes (comma-separated, e.g., 010121, 010129)
+   - Country (dropdown)
+   - Trade Type (Import/Export)
+   - Start Date (MM/DD/YYYY or YYYY)
+   - End Date (MM/DD/YYYY or YYYY)
+
+👷 WORKERS STATUS:
+   ✅ Task Creator: 1 worker (running)
+   ✅ Scrapers: 4 workers × 2 concurrency = 8 concurrent tasks
+
+====================================================================

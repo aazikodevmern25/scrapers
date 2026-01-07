@@ -43,26 +43,24 @@ os.makedirs("pdf_files", exist_ok=True)
 cwd = os.getcwd()
 
 
-headers = """Accept: application/json, text/javascript, */*; q=0.01
-Accept-Encoding: gzip, deflate, br, zstd
-Accept-Language: en-GB,en-US;q=0.9,en;q=0.8
-Cache-Control: no-cache
-Connection: keep-alive
-Content-Type: application/json; charset=utf-8
-DNT: 1
-Host: www.macmap.org
-Pragma: no-cache
-Referer: https://www.macmap.org/
-Sec-Fetch-Dest: empty
-Sec-Fetch-Mode: cors
-Sec-Fetch-Site: same-origin
-User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36
-X-Requested-With: XMLHttpRequest
-sec-ch-ua: "Google Chrome";v="131", "Not-A.Brand";v="8", "Chromium";v="131"
-sec-ch-ua-mobile: ?0
-sec-ch-ua-platform: "Windows"
-"""
-headers = scraper_helper.get_dict(headers)
+headers = {
+    "Accept": "application/json, text/javascript, */*; q=0.01",
+    "Accept-Encoding": "gzip, deflate, br, zstd",
+    "Accept-Language": "en-GB,en-US;q=0.9,en;q=0.8",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    "Host": "www.macmap.org",
+    "Pragma": "no-cache",
+    "Referer": "https://www.macmap.org/",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "X-Requested-With": "XMLHttpRequest",
+    "sec-ch-ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"'
+}
 
 # Separate collections for each Macmap scraper (using db from utils)
 macmap_tariff_collection = db["macmap_tariff"]
@@ -129,20 +127,35 @@ def NormalizeFtaData(response_json):
 def ProcessTradeAgreement(js, c1_id, c2_id, year, hsc):
     ftaid = js["FtaId"]
     logger.info(f"Processing trade agreement: {ftaid} for countries {c1_id}, {c2_id}, year {year}, HS code {hsc}")
+    
+    # Check if API request is successful
     req = SendGetRequests(
         f"https://www.macmap.org/api/results/fta?reporter={c1_id}&partner={c2_id}&product={hsc}&ftaId={ftaid}",
         headers,
-        use_proxy=False
+        use_proxy=True,
+        use_webshare=True
     )
+    
+    # If request fails, return original data with basic tariff info
+    if req is None or req.status_code != 200:
+        logger.warning(f"Failed to fetch FTA details for {ftaid}, keeping basic tariff data")
+        return js
+    
     logger.info(f"FTA request: {req.url}, status: {req.status_code}")
-    if req.status_code == 200:
-        dt = req.json()
-        dt["pdf_urls"] = []
-        req1 = SendGetRequests(
-            f"https://www.macmap.org/api/results/roo-by-fta?reporter={c1_id}&partner={c2_id}&ftaId={ftaid}",
-            headers,
-            use_proxy=False
-        )
+    
+    # Merge FTA details with original tariff data (don't replace!)
+    fta_details = req.json()
+    fta_details["pdf_urls"] = []
+    
+    # Fetch ROO data
+    req1 = SendGetRequests(
+        f"https://www.macmap.org/api/results/roo-by-fta?reporter={c1_id}&partner={c2_id}&ftaId={ftaid}",
+        headers,
+        use_proxy=True,
+        use_webshare=True
+    )
+    
+    if req1 and req1.status_code == 200:
         logger.info(f"ROO by FTA request: {req1.url}, status: {req1.status_code}")
         r1_data = NormalizeFtaData(req1.json())
         logger.info(f"Processing {len(r1_data)} ROO items for FTA: {ftaid}")
@@ -152,15 +165,16 @@ def ProcessTradeAgreement(js, c1_id, c2_id, year, hsc):
             i["PdfFileName"] = pdf_name
             i["PdfUrl"] = pdf_url
             del i["HtmlLink"]
-            dt["pdf_urls"].append(i)
+            fta_details["pdf_urls"].append(i)
             logger.info(f"Downloading PDF: {pdf_url}")
             DownloadPdf(pdf_url, pdf_name)
-
-        logger.info(f"Completed processing trade agreement: {ftaid}")
-        return dt
-    else:
-        logger.warning(f"Failed to process trade agreement: {ftaid}, status code: {req.status_code}")
-        return js
+    
+    # CRITICAL FIX: Merge FTA details into original tariff data
+    # This preserves the basic tariff info (e.g., "Preferential tariff 0%")
+    js["trade_agreement_details"] = fta_details
+    
+    logger.info(f"Completed processing trade agreement: {ftaid}, merged with basic tariff data")
+    return js
 
 
 def ScrapeMacmapTariff(country1, country2, year, hsc):
@@ -168,10 +182,13 @@ def ScrapeMacmapTariff(country1, country2, year, hsc):
     c1_id = countries[country1]
     c2_id = countries[country2]
     item = hscodes_full[hsc]
+    
+    # Use Webshare residential proxies for MacMap (bypasses anti-bot)
     req = SendGetRequests(
         f"https://www.macmap.org/api/results/custom-duties-by-year?reporter={c1_id}&partner={c2_id}&product={hsc}&year={year}",
         headers,
-        use_proxy=False  # MacMap doesn't require proxy and blocks proxy IPs
+        use_proxy=True,
+        use_webshare=True
     )
     
     # Check if request was successful
@@ -222,7 +239,8 @@ def ScrapeMacmapTradeRemedies(country1, country2, year, hs):
     req1 = SendGetRequests(
         f"https://www.macmap.org/api/tr-products?remedytype=All&reporterCode={c1_id}&level=8&year={year}&partnerCode={c2_id}&productCode={hs}",
         headers,
-        use_proxy=False
+        use_proxy=True,
+        use_webshare=True
     )
     logger.info(f"Trade remedies request: {req1.url}, status: {req1.status_code}")
     
@@ -232,7 +250,8 @@ def ScrapeMacmapTradeRemedies(country1, country2, year, hs):
         req = SendGetRequests(
             f"https://www.macmap.org/api/results/trade-remedy-by-year?remedytype=All&reporter={c1_id}&year={year}&partner={c2_id}&product={hsc}",
             headers,
-            use_proxy=False
+            use_proxy=True,
+            use_webshare=True
         )
         logger.info(f"Trade remedies request: {req.url}, status: {req.status_code}")
         if req.status_code == 200:
@@ -362,7 +381,7 @@ def ScrapeMacmapRegulatoryRequirements(country1, country2, hsc, regtype):
         print(f"🌐 MacMap Regulatory URL [{idx}/{len(hsc_codes_to_scrape)}]: {url}")
         
         try:
-            req = SendGetRequests(url, headers, use_proxy=False)
+            req = SendGetRequests(url, headers, use_proxy=True, use_webshare=True)
             logger.info(f"📡 Response status: {req.status_code}")
             
             if req.status_code == 200:
@@ -425,7 +444,8 @@ def ScrapeMacmapCompareMarket(country, hsc):
     req = SendGetRequests(
         f"https://www.macmap.org/api/results/importerview?reporter=All&partner={c1_id}&product={hsc}",
         headers,
-        use_proxy=False
+        use_proxy=True,
+        use_webshare=True
     )
     logger.info(f"Compare market request: {req.url}, status: {req.status_code}")
     if req.status_code == 200:
@@ -462,7 +482,8 @@ def ScrapeMacmapCompetitors(country, hsc):
     req = SendGetRequests(
         f"https://www.macmap.org/api/results/exporterview?reporter={c1_id}&partner=All&product={hsc}",
         headers,
-        use_proxy=False
+        use_proxy=True,
+        use_webshare=True
     )
     logger.info(f"Competitors request: {req.url}, status: {req.status_code}")
     if req.status_code == 200:
@@ -496,7 +517,8 @@ def ScrapeMacmapProducts(country1, country2, hsc_lvl):
     req = SendGetRequests(
         f"https://www.macmap.org/api/results/productview?reporter={c1_id}&partner={c2_id}&product=All&level={hsc_lvl}",
         headers,
-        use_proxy=False
+        use_proxy=True,
+        use_webshare=True
     )
     logger.info(f"Products request: {req.url}, status: {req.status_code}")
     if req.status_code == 200:
@@ -530,7 +552,8 @@ def SCTariff(row):
     req = SendGetRequests(
         f"https://www.macmap.org/api/results/custom-duties-by-year?reporter={c1_id}&partner=all&product={hsc}&year={year}",
         headers,
-        use_proxy=False
+        use_proxy=True,
+        use_webshare=True
     )
     logger.info(f"Custom duties request: {req.url}, status: {req.status_code}")
     custom_tariff_data = []
@@ -577,7 +600,8 @@ def ScrapeTarrifFull(country):
         req = SendGetRequests(
             f"https://www.macmap.org/api/getyears?datatype=Tariff&reporters={c1_id}",
             headers,
-            use_proxy=False
+            use_proxy=True,
+            use_webshare=True
         )
         
         # Check if request was successful
@@ -594,7 +618,8 @@ def ScrapeTarrifFull(country):
                 req = SendGetRequests(
                     f'https://www.macmap.org/api/customs-duties-products?countryCode={c1_id}&level=8&year={year}',
                     headers,
-                    use_proxy=False
+                    use_proxy=True,
+                    use_webshare=True
                 )
                 if len(req.json()) > 0:
                     # Get all HS codes for this year (no filtering)
@@ -617,3 +642,197 @@ def ScrapeTarrifFull(country):
             logger.error(f"Failed to get years, status code: {req.status_code}")
     except Exception as e:
         logger.error(f"Error in ScrapeTarrifFull: {str(e)}", exc_info=True)
+
+
+def ScrapeMacmapTradeAgreements(country):
+    """
+    Scrape Trade Agreements data from MACMAP using the web page.
+    Uses Playwright to navigate to https://www.macmap.org/en/query/trade-agreements
+    """
+    try:
+        logger.info(f"Starting Trade Agreements scrape for country: {country}")
+        c1_id = get_country_code(country)
+        
+        # Use Playwright to scrape the web page
+        from scrapers.macmap.macmap_selenium import get_trade_agreements_selenium
+        
+        # Clear old data first
+        macmap_trade_agreements_collection = db["macmap_trade_agreements"]
+        macmap_trade_agreements_collection.delete_many({"country": country})
+        logger.info(f"Cleared old FTA data for {country}")
+        
+        # Scrape as exporter
+        logger.info(f"Scraping {country} as exporter...")
+        exporter_agreements = get_trade_agreements_selenium(c1_id, country, relation='exporter', partner='All')
+        
+        # Scrape as importer
+        logger.info(f"Scraping {country} as importer...")
+        importer_agreements = get_trade_agreements_selenium(c1_id, country, relation='importer', partner='All')
+        
+        # Combine and save all agreements
+        all_agreements = exporter_agreements + importer_agreements
+        
+        if all_agreements:
+            for agreement in all_agreements:
+                agreement['country'] = country
+                agreement['country_code'] = c1_id
+                agreement['scraped_at'] = datetime.datetime.now().isoformat()
+                macmap_trade_agreements_collection.insert_one(agreement)
+                logger.info(f"Found & Saved FTA: {agreement.get('name', 'Unknown')} - Year: {agreement.get('year', 'N/A')}")
+            
+            logger.info(f"Successfully scraped {len(all_agreements)} trade agreements for {country}")
+        else:
+            logger.warning(f"No trade agreements found for {country}")
+            doc = {
+                "country": country,
+                "country_code": c1_id,
+                "message": f"No trade agreements found for {country}",
+                "scraped_at": datetime.datetime.now().isoformat()
+            }
+            macmap_trade_agreements_collection.insert_one(doc)
+        
+        return
+        
+    except KeyError as e:
+        logger.error(f"Country not found in mapping: {country}")
+        raise
+    except Exception as e:
+        logger.error(f"Error scraping trade agreements for {country}: {str(e)}")
+        raise
+
+
+def ScrapeMacmapTradeAgreements_OLD_API_VERSION(country):
+    """
+    OLD VERSION: Scrape Trade Agreements data from MACMAP using API endpoints.
+    THIS VERSION IS DEPRECATED - API returns 403 errors.
+    Kept for reference only.
+    """
+    try:
+        logger.info(f"Starting Trade Agreements scrape for country: {country}")
+        c1_id = get_country_code(country)
+        
+        # Get available years
+        years_url = f"https://www.macmap.org/api/getyears?datatype=Tariff&reporters={c1_id}"
+        req = SendGetRequests(years_url, headers, use_proxy=True, use_webshare=True)
+        
+        if req is None or req.status_code != 200:
+            logger.error(f"Failed to fetch years for country {country}")
+            return
+        
+        years = [x["Year"] for x in req.json()]
+        if not years:
+            logger.warning(f"No years found for {country}")
+            return
+            
+        latest_year = max(years)
+        logger.info(f"Using latest year {latest_year} for {country}")
+        
+        # Get all partner countries to check for FTAs
+        all_agreements = []
+        fta_partners = set()
+        
+        # Load all country codes
+        import pathlib
+        _macmap_dir = pathlib.Path(__file__).parent
+        all_countries = json.load(open(_macmap_dir / "macmap_countries" / "countries.json", "r", encoding="utf-8"))
+        
+        logger.info(f"Checking {len(all_countries)} partner countries for FTAs with {country}...")
+        
+        # Query each partner country to find FTAs
+        for partner_info in all_countries:
+            partner_code = partner_info['Code']
+            partner_name = partner_info['Name']
+            
+            # Skip same country
+            if str(partner_code) == str(c1_id):
+                continue
+            
+            # Check customs duties for preferential tariffs (indicates FTA)
+            url = f"https://www.macmap.org/api/results/custom-duties-by-year?reporter={c1_id}&partner={partner_code}&product=01&year={latest_year}"
+            req = SendGetRequests(url, headers, use_proxy=True, use_webshare=True)
+            
+            if req and req.status_code == 200:
+                try:
+                    data = req.json()
+                    show_pref = data.get('ShowPref')
+                    pref_tariff = data.get('MaxPrefTariffAve') or data.get('MinPrefTariffAve')
+                    
+                    if show_pref or (pref_tariff and pref_tariff != 'None'):
+                        # Found FTA with this partner
+                        fta_partners.add(partner_code)
+                        
+                        agreement = {
+                            "country": country,
+                            "country_code": c1_id,
+                            "partner_country": partner_name,
+                            "partner_code": partner_code,
+                            "agreement_type": "Preferential/FTA",
+                            "preferential_tariff": pref_tariff,
+                            "year": latest_year,
+                            "status": "In force",
+                            "relation": "bilateral",
+                            "scraped_at": datetime.datetime.now().isoformat()
+                        }
+                        
+                        # Try to get FTA name
+                        fta_url = f"https://www.macmap.org/api/results/fta?reporter={c1_id}&partner={partner_code}&product=01&ftaId=0"
+                        fta_req = SendGetRequests(fta_url, headers, use_proxy=True, use_webshare=True)
+                        if fta_req and fta_req.status_code == 200:
+                            try:
+                                fta_data = fta_req.json()
+                                agreement['agreement_name'] = fta_data.get('LblAgreementName') or fta_data.get('AgreementName') or f"FTA {country}-{partner_name}"
+                                agreement['agreement_type'] = fta_data.get('LblType') or fta_data.get('Type') or "FTA"
+                                agreement['scope'] = fta_data.get('LblScope') or fta_data.get('Scope') or ""
+                                agreement['in_force_date'] = fta_data.get('LblInForce') or fta_data.get('InForce') or ""
+                                agreement['signed_date'] = fta_data.get('LblSigned') or fta_data.get('Signed') or ""
+                                agreement['member_states'] = fta_data.get('LblMemberStates') or fta_data.get('MemberStates') or ""
+                            except:
+                                agreement['agreement_name'] = f"FTA {country}-{partner_name}"
+                        else:
+                            agreement['agreement_name'] = f"FTA {country}-{partner_name}"
+                        
+                        # Save immediately to MongoDB
+                        macmap_trade_agreements_collection.insert_one(agreement)
+                        all_agreements.append(agreement)
+                        logger.info(f"Found & Saved FTA: {agreement['agreement_name']} with {partner_name}")
+                        
+                except Exception as e:
+                    logger.debug(f"Error parsing response for {partner_name}: {e}")
+        
+        agreements = all_agreements
+        logger.info(f"Total FTAs found: {len(agreements)} for {country}")
+        
+        if agreements:
+            logger.info(f"Successfully scraped {len(agreements)} trade agreements for {country} (already saved to DB)")
+        else:
+            # No agreements found 
+            logger.warning(f"No trade agreements found for {country}")
+            doc = {
+                "country": country,
+                "country_code": c1_id,
+                "year": latest_year,
+                "message": f"No trade agreements found for {country}",
+                "years_available": years,
+                "latest_year_checked": latest_year,
+                "scraped_at": datetime.datetime.now().isoformat()
+            }
+            macmap_trade_agreements_collection = db["macmap_trade_agreements"]
+            macmap_trade_agreements_collection.update_one(
+                {"country": country},
+                {"$set": doc},
+                upsert=True
+            )
+            
+    except KeyError as e:
+        logger.error(f"Country not found: {country} - {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Error in ScrapeMacmapTradeAgreements: {str(e)}", exc_info=True)
+        raise
+            
+    except KeyError as e:
+        logger.error(f"Country not found: {country} - {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Error in ScrapeMacmapTradeAgreements: {str(e)}", exc_info=True)
+        raise

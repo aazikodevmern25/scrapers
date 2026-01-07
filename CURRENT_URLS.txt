@@ -1,0 +1,40 @@
+═══════════════════════════════════════════════════════════════
+CURRENT WORKING URLs (Updated: Jan 7, 2026 at 10:48 AM)
+═══════════════════════════════════════════════════════════════
+
+✅ ALL SCRAPERS RUNNING: TradeMap, MacMap & Eximpedia
+   FastAPI: Port 5555 (Bypasses Coolify) | Encryption Key: UPDATED
+   Workers: Eximpedia (8) + TradeMap (21) + MacMap (11) = 40 Active
+
+📋 DIRECT FORM URLS (Copy & Paste):
+
+TradeMap Form:
+https://18c603a21112.ngrok-free.app/trademap-form
+
+MacMap Tariff Form:
+https://18c603a21112.ngrok-free.app/static/macmap_tariff_form.html
+
+Eximpedia Form:
+https://18c603a21112.ngrok-free.app/eximpedia-form
+
+API Docs:
+https://18c603a21112.ngrok-free.app/docs
+
+Health Check:
+https://18c603a21112.ngrok-free.app/api/v1/health
+
+═══════════════════════════════════════════════════════════════
+✅ These URLs work directly - NO Coolify login!
+═══════════════════════════════════════════════════════════════
+
+WORKERS STATUS:
+  ✅ Eximpedia: 14 workers (1 task creator + 4 scrapers × 2 concurrency)
+  ✅ TradeMap: 1 worker (20 concurrency)
+  ✅ MacMap: 1 worker (10 concurrency)
+
+If server restarts again, run:
+  cd /home/aaziko/scrapers
+  bash restart_all_services.sh
+  bash start_eximpedia.sh
+  
+Then check this file for new URLs.

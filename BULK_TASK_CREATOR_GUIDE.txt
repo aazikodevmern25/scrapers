@@ -1,0 +1,194 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║                  BULK MACMAP TASK CREATOR - 10K+ TASKS                       ║
+║                     No Web Form - Direct Queue Creation                      ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+
+✅ PROBLEM SOLVED:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ❌ OLD WAY: Web form
+     - Limited to ~600 tasks before timing out
+     - Browser crashes with large batches
+     - Must manually submit multiple times
+
+  ✅ NEW WAY: Python scripts
+     - Create 10,000+ tasks instantly
+     - Direct to queue (bypasses web form)
+     - No browser limitations
+     - Runs in seconds
+
+
+📋 TWO SCRIPTS AVAILABLE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1️⃣  create_bulk_macmap_tasks.py (Interactive)
+    - Menu with options
+    - Choose: small test, medium, large, or custom
+    - Good for learning and custom configurations
+
+2️⃣  quick_bulk_tasks.py (Fast)
+    - Pre-configured for 12,500 tasks
+    - Just run and confirm
+    - Edit file to change configuration
+
+
+🚀 QUICK START - CREATE 12,500 TASKS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  cd /home/aaziko/scrapers
+  python3 quick_bulk_tasks.py
+
+  ↓ It will ask: "Proceed? (yes/no):"
+  Type: yes
+
+  ⏱️  Takes ~30 seconds to create 12,500 tasks
+  ✅ All tasks queued to Redis
+  🔄 Workers start processing immediately
+
+
+📝 CONFIGURATION (Edit quick_bulk_tasks.py):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Current setup (12,500 tasks):
+  - 25 importing countries
+  - 25 exporting countries  
+  - 20 HS codes
+  - Year: 2024
+
+To change:
+  1. Open: nano quick_bulk_tasks.py
+  2. Edit the lists at the top:
+     - IMPORTING_COUNTRIES = [...]
+     - EXPORTING_COUNTRIES = [...]
+     - HS_CODES = [...]
+     - YEAR = 2024
+  3. Save and run
+
+
+📊 INTERACTIVE MODE - CHOOSE YOUR BATCH SIZE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  cd /home/aaziko/scrapers
+  python3 create_bulk_macmap_tasks.py
+
+Options:
+  1. Small test (18 tasks) - for testing
+  2. Medium batch (600 tasks) - safe batch size
+  3. Large batch (10,000 tasks) - big batch
+  4. Custom - enter your own lists
+
+
+🔍 MONITORING YOUR TASKS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Check queue length:
+  redis-cli LLEN macmap_tariff
+
+Check how many tasks left:
+  watch -n 5 'redis-cli LLEN macmap_tariff'
+
+Check database growth:
+  python3 -c "from pymongo import MongoClient; import os; from dotenv import load_dotenv; load_dotenv(); client = MongoClient(os.getenv('MONGO_URI')); db = client[os.getenv('MONGO_DB')]; print(f'MacMap: {db.macmap_tariff.count_documents({}):,} documents')"
+
+
+⚡ EXAMPLE USAGE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Example 1: Quick 12,500 tasks
+──────────────────────────────────────────────────────────────────────────────
+  cd /home/aaziko/scrapers
+  python3 quick_bulk_tasks.py
+  # Type: yes
+
+
+Example 2: Custom batch (your countries/HS codes)
+──────────────────────────────────────────────────────────────────────────────
+  1. Edit quick_bulk_tasks.py
+  2. Replace the country/HS code lists with yours
+  3. Save and run:
+     python3 quick_bulk_tasks.py
+
+
+Example 3: Interactive mode
+──────────────────────────────────────────────────────────────────────────────
+  python3 create_bulk_macmap_tasks.py
+  # Choose option 3 for 10,000 tasks
+  # Or option 4 to enter custom lists
+
+
+Example 4: Auto mode (no confirmation)
+──────────────────────────────────────────────────────────────────────────────
+  python3 quick_bulk_tasks.py --auto
+  # Creates tasks immediately, no prompt
+
+
+💡 TIPS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ DO:
+  • Start with small test (18 tasks) first time
+  • Ensure workers are running before creating tasks
+  • Monitor queue to see tasks being processed
+  • Create 10k-50k tasks at once - no problem!
+
+❌ DON'T:
+  • Create millions of tasks at once (use batches)
+  • Run script twice simultaneously
+  • Stop script mid-creation (tasks already created will stay)
+
+
+⚙️ WORKER STATUS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Check if workers running:
+  ps aux | grep "celery.*macmap_tariff" | grep -v grep | wc -l
+
+If 0, start workers:
+  cd /home/aaziko/scrapers
+  for i in {1..4}; do 
+    nohup celery -A celery_app.tasks worker --loglevel=info \
+      -Q macmap_tariff --concurrency=3 \
+      --hostname=macmap_tariff_worker_${i}@%h \
+      --max-tasks-per-child=50 \
+      > logs/celery_macmap_tariff_worker${i}.log 2>&1 &
+    sleep 1
+  done
+
+
+📈 TYPICAL PROCESSING TIMES:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Tasks Creation Speed:
+  ~500-1000 tasks/second
+  
+  10,000 tasks  = ~10-20 seconds to create
+  50,000 tasks  = ~50-100 seconds to create
+  100,000 tasks = ~2-3 minutes to create
+
+Workers Processing Speed (16 workers):
+  ~20-30 seconds per task (with proxies)
+  ~50-100 tasks per minute
+  
+  1,000 tasks   = ~3-6 hours
+  10,000 tasks  = ~1-2 days
+  50,000 tasks  = ~5-10 days
+
+
+🎯 SUMMARY:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Problem: Web form fails with 600+ tasks
+Solution: Python scripts create 10k+ tasks instantly
+
+Commands:
+  1. Quick method:    python3 quick_bulk_tasks.py
+  2. Interactive:     python3 create_bulk_macmap_tasks.py
+  3. Monitor queue:   redis-cli LLEN macmap_tariff
+  4. Check database:  Check script above
+
+Your 10,000+ tasks will be created in seconds and queued automatically!
+
+═══════════════════════════════════════════════════════════════════════════════

@@ -19,7 +19,13 @@ def payload_extractor(payload):
     return {
         'hscode': payload.get('hscode'),
         'country1': payload.get('country1'),
-        'country2': payload.get('country2')
+        'country2': payload.get('country2'),
+        'time_series_list': payload.get('time_series_list'),
+        'view_type_list': payload.get('view_type_list'),
+        'value_type_list': payload.get('value_type_list'),
+        'all_hs_codes': payload.get('all_hs_codes', False),
+        'all_exporting': payload.get('all_exporting', False),
+        'all_importing': payload.get('all_importing', False)
     }
 
 

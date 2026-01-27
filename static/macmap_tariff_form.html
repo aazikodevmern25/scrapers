@@ -289,6 +289,7 @@
                 return;
             }
 
+            // Send importing and exporting countries SEPARATELY for proper combinations
             const formData = {
                 hscodes: hscodes,
                 importing_countries: importing_countries,
@@ -304,23 +305,50 @@
             responseDiv.style.display = 'none';
 
             try {
-                const response = await fetch('/api/v1/scrape/tariff/bulk', {
+                const apiBaseUrl = window.location.origin;
+                
+                // Step 1: Generate payloads
+                const payloadResponse = await fetch(`${apiBaseUrl}/api/v1/payload/generate`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
                     },
-                    body: JSON.stringify(formData)
+                    body: JSON.stringify({
+                        payload_type: 'macmaptariff',
+                        config: formData
+                    })
                 });
 
-                const data = await response.json();
+                const payloadData = await payloadResponse.json();
 
-                if (response.ok) {
+                if (!payloadResponse.ok) {
+                    throw new Error(payloadData.message || 'Failed to generate payloads');
+                }
+
+                // Step 2: Auto-queue tasks
+                btnText.innerHTML = '<span class="spinner"></span>Queuing Tasks...';
+                
+                const taskResponse = await fetch(`${apiBaseUrl}/api/v1/tasks/create`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
+                    },
+                    body: JSON.stringify({
+                        scraper_id: 'MacMapTariff'
+                    })
+                });
+
+                const taskData = await taskResponse.json();
+
+                if (taskResponse.ok) {
                     responseDiv.className = 'response success';
                     responseDiv.innerHTML = `
-                        <strong>✅ Bulk Tasks Created Successfully!</strong>
+                        <strong>✅ Tasks Generated Successfully!</strong>
                         <div class="task-info">
-                            <div><strong>Total Tasks Queued:</strong> ${data.total_tasks || totalTasks}</div>
-                            <div><strong>Task IDs:</strong> ${(data.task_ids || []).length} tasks created</div>
+                            <div><strong>Payloads Created:</strong> ${payloadData.tasksCreated || 'N/A'}</div>
+                            <div><strong>Tasks Queued:</strong> ${taskData.tasks_queued || 'Processing...'}</div>
                             
                             <div class="stats-box">
                                 <div><strong>📋 Configuration:</strong></div>

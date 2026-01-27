@@ -15,6 +15,7 @@ from scrapers.macmap import (
 from scrapers.indiantradeportal import IndianTradePortalScrape
 from scrapers.trademap.trademap import ScrapeTrademap
 from scrapers.eximpedia import ParseDates, ScrapeEximpedia, ScrapeEximpediaBatch
+from scrapers.eximpedia.eximpedia_mirror_data import scrape_mirror_data as ScrapeMirrorData
 from scrapers.port_scraper import (
     ScrapePortsStartFresh,
     ScrapePortsResumeFrom,
@@ -54,6 +55,7 @@ app.conf.update(
         'celery_app.tasks.trademap_scraper_task': {'queue': 'trademap'},
         'celery_app.tasks.eximpedia_scraper_task': {'queue': 'eximpedia'},
         'celery_app.tasks.eximpedia_batch_scraper_task': {'queue': 'eximpedia'},
+        'celery_app.tasks.eximpedia_mirror_data_task': {'queue': 'eximpedia_new'},
         'celery_app.tasks.port_scraper_start_fresh_task': {'queue': 'port_scraper'},
         'celery_app.tasks.port_scraper_resume_task': {'queue': 'port_scraper'},
         'celery_app.tasks.port_scraper_update_existing_task': {'queue': 'port_scraper'},
@@ -304,7 +306,22 @@ def scrape_indian_trade_portal(self, hscode):
         raise self.retry(exc=exc)
 
 @app.task(bind=True, autoretry_for=(Exception,), retry_kwargs={'max_retries': 2, 'countdown': 300})
-def trademap_scraper_task(self, hscode, country1, country2):
+def trademap_scraper_task(self, hscode, country1, country2, time_series_list=None, view_type_list=None, value_type_list=None, all_hs_codes=False, all_exporting=False, all_importing=False):
+    """
+    TradeMap scraper task with extended options.
+    
+    Args:
+        hscode: HS code to scrape (or 'all' for all products)
+        country1: Exporting country (or 'all' for all countries)
+        country2: Importing country (or 'all' for all countries)
+        time_series: One of 'yearly', 'quarterly', 'monthly', 'trade_indicators'
+        view_type: One of 'by_country', 'by_product', 'by_service'
+        value_type: One of 'values', 'quantities', 'growth_value', 'growth_quantity', 
+                    'share_value', 'unit_values', 'growth_unit_values', 'index_values', 'index_unit_values'
+        all_hs_codes: If True, scrape all HS codes
+        all_exporting: If True, scrape all exporting countries
+        all_importing: If True, scrape all importing countries
+    """
     try:
         # Check if task should be paused before execution
         if check_task_should_pause(self.request.id):
@@ -312,9 +329,24 @@ def trademap_scraper_task(self, hscode, country1, country2):
             raise TaskPausedException(f"Task {self.request.id} is paused")
         
         logger.info(f"Starting TradeMap scrape: {hscode}, {country1} -> {country2}")
-        ScrapeTrademap(hscode, country1, country2)
+        logger.info(f"Options: time_series_list={time_series_list}, view_type_list={view_type_list}, value_type_list={value_type_list}")
+        
+        # Call scraper with lists of parameters
+        ScrapeTrademap(
+            hscode, country1, country2,
+            time_series_list, view_type_list, value_type_list,
+            all_hs_codes, all_exporting, all_importing
+        )
         logger.info(f"Completed TradeMap scrape: {hscode}")
-        return {"status": "success", "hscode": hscode, "country1": country1, "country2": country2}
+        return {
+            "status": "success", 
+            "hscode": hscode, 
+            "country1": country1, 
+            "country2": country2,
+            "time_series_list": time_series_list,
+            "view_type_list": view_type_list,
+            "value_type_list": value_type_list
+        }
     except TaskPausedException:
         # Don't retry paused tasks
         logger.info(f"Task {self.request.id} is paused, not retrying")
@@ -324,15 +356,18 @@ def trademap_scraper_task(self, hscode, country1, country2):
         raise self.retry(exc=exc)
 
 @app.task(name='celery_app.tasks.eximpedia_scraper_task', bind=True)
-def eximpedia_scraper_task(self, start_date: str, end_date: str, hscode: str, country: str, mode: str):
+def eximpedia_scraper_task(self, start_date: str, end_date: str, hscode: str, country: str, mode: str, email: str = None, password: str = None):
     """
     Celery task wrapper for Eximpedia scraping
+    Accepts optional email and password for custom credentials
     """
     logger.info(f"Starting Eximpedia scrape: {hscode}, {country}, {mode}, {start_date} to {end_date}")
+    if email:
+        logger.info(f"Using custom credentials: {email}")
     
     try:
         sd, ed = ParseDates(start_date, end_date)
-        result = ScrapeEximpedia(sd, ed, hscode, country, mode)
+        result = ScrapeEximpedia(sd, ed, hscode, country, mode, email=email, password=password)
         logger.info(f"Completed Eximpedia scrape: {result}")
         return {
             "status": "success" if result == "Success" else "failed",
@@ -364,6 +399,113 @@ def eximpedia_batch_scraper_task(self, batch_data):
     except Exception as exc:
         logger.error(f"Error scraping Eximpedia batch: {str(exc)}")
         raise self.retry(exc=exc)
+
+@app.task(name='celery_app.tasks.eximpedia_mirror_data_task', bind=True)
+def eximpedia_mirror_data_task(self, search_type: str, search_value: str, start_date: str, 
+                                end_date: str, countries: list, match_type: str = 'EXACT',
+                                email: str = None, password: str = None,
+                                download_excel: bool = True, max_records: int = 1000):
+    """
+    Celery task for Eximpedia Mirror Data scraping.
+    Scrapes mirror trade data and optionally downloads Excel reports.
+    """
+    from utils import db
+    from datetime import datetime
+    
+    # Save task to scraper_tasks collection for dashboard visibility
+    task_doc = {
+        "scraper": "eximpedia_mirror_data",
+        "status": "processing",
+        "payload": {
+            "search_type": search_type,
+            "search_value": search_value,
+            "start_date": start_date,
+            "end_date": end_date,
+            "countries": countries,
+            "match_type": match_type,
+            "download_excel": download_excel,
+            "max_records": max_records
+        },
+        "created_at": datetime.now(),
+        "updated_at": datetime.now(),
+        "task_id": self.request.id
+    }
+    
+    scraper_tasks = db['scraper_tasks']
+    task_result = scraper_tasks.insert_one(task_doc)
+    task_db_id = task_result.inserted_id
+    
+    try:
+        # Check if task should be paused before execution
+        if check_task_should_pause(self.request.id):
+            logger.info(f"Task {self.request.id} is paused, skipping execution")
+            scraper_tasks.update_one(
+                {"_id": task_db_id},
+                {"$set": {"status": "paused", "updated_at": datetime.now()}}
+            )
+            raise TaskPausedException(f"Task {self.request.id} is paused")
+        
+        logger.info(f"Starting Mirror Data scrape: {search_type}={search_value}")
+        logger.info(f"Countries: {len(countries)}, Date: {start_date} to {end_date}")
+        
+        result = ScrapeMirrorData(
+            search_type=search_type,
+            search_value=search_value,
+            start_date=start_date,
+            end_date=end_date,
+            countries=countries,
+            match_type=match_type,
+            email=email,
+            password=password,
+            download_excel=download_excel,
+            max_records=max_records
+        )
+        
+        logger.info(f"Completed Mirror Data scrape: {result}")
+        
+        # Update task status in scraper_tasks
+        scraper_tasks.update_one(
+            {"_id": task_db_id},
+            {
+                "$set": {
+                    "status": "completed" if result.get('status') == 'success' else "failed",
+                    "updated_at": datetime.now(),
+                    "result": {
+                        "records_scraped": result.get('records_scraped', 0),
+                        "document_id": result.get('document_id'),
+                        "excel_path": result.get('excel_path'),
+                        "countries_processed": result.get('countries_processed', []),
+                        "countries_failed": result.get('countries_failed', [])
+                    }
+                }
+            }
+        )
+        
+        return {
+            "status": result.get('status', 'unknown'),
+            "message": result.get('message', ''),
+            "records_scraped": result.get('records_scraped', 0),
+            "document_id": result.get('document_id'),
+            "excel_path": result.get('excel_path'),
+            "search_type": search_type,
+            "search_value": search_value,
+            "countries": countries,
+            "task_db_id": str(task_db_id)
+        }
+    except TaskPausedException:
+        logger.info(f"Task {self.request.id} is paused, not retrying")
+        scraper_tasks.update_one(
+            {"_id": task_db_id},
+            {"$set": {"status": "paused", "updated_at": datetime.now()}}
+        )
+        return {"status": "paused", "message": "Task execution paused"}
+    except Exception as exc:
+        logger.error(f"Error scraping Mirror Data: {str(exc)}")
+        scraper_tasks.update_one(
+            {"_id": task_db_id},
+            {"$set": {"status": "failed", "updated_at": datetime.now(), "error": str(exc)}}
+        )
+        raise self.retry(exc=exc, max_retries=1, countdown=60)
 
 @app.task(bind=True, autoretry_for=(Exception,), retry_kwargs={'max_retries': 1, 'countdown': 60})
 def port_scraper_start_fresh_task(self, headless=True, countries_limit=None):

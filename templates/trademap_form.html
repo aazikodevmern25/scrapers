@@ -56,19 +56,95 @@
             font-size: 14px;
         }
 
-        input[type="text"] {
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        select {
             width: 100%;
             padding: 12px 15px;
             border: 2px solid #e0e0e0;
             border-radius: 8px;
             font-size: 14px;
             transition: all 0.3s ease;
+            background: white;
         }
 
-        input[type="text"]:focus {
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        input[type="password"]:focus,
+        select:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-top: 8px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-right: 8px;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            margin-bottom: 0;
+            cursor: pointer;
+            font-weight: normal;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 15px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        .multi-select-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .multi-select-container label {
+            display: flex;
+            align-items: center;
+            padding: 6px 12px;
+            background: #f5f5f5;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .multi-select-container label:hover {
+            background: #e3e3e3;
+        }
+
+        .multi-select-container input[type="checkbox"] {
+            width: 14px;
+            height: 14px;
+            margin-right: 6px;
+        }
+
+        .multi-select-container input[type="checkbox"]:checked + span {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .section-title {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
         }
 
         .example {
@@ -172,22 +248,91 @@
         </div>
 
         <form id="scrapeForm">
+            <!-- HS Code Section -->
             <div class="form-group">
                 <label for="hscode">HS Code(s)</label>
-                <input type="text" id="hscode" name="hscode" placeholder="e.g., 29211, 081350, 481490" required>
-                <div class="example">Enter one or multiple HS codes separated by commas</div>
+                <input type="text" id="hscode" name="hscode" placeholder="e.g., 29211, 081350, 481490">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="allHsCodes" name="allHsCodes">
+                    <label for="allHsCodes">Scrape ALL products (ignore HS codes above)</label>
+                </div>
+                <div class="example">Enter one or multiple HS codes separated by commas, or check "ALL" to scrape all products</div>
             </div>
 
+            <!-- Countries Section -->
             <div class="form-group">
                 <label for="country1">Exporting Country(ies)</label>
-                <input type="text" id="country1" name="country1" placeholder="e.g., United States of America, India" required>
-                <div class="example">Enter one or multiple exporting countries separated by commas</div>
+                <input type="text" id="country1" name="country1" placeholder="e.g., United States of America, India">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="allExporting" name="allExporting">
+                    <label for="allExporting">ALL exporting countries</label>
+                </div>
+                <div class="example">Enter countries or check "ALL" for all exporting countries</div>
             </div>
 
             <div class="form-group">
                 <label for="country2">Importing Country(ies)</label>
-                <input type="text" id="country2" name="country2" placeholder="e.g., India, China, Germany" required>
-                <div class="example">Enter one or multiple importing countries separated by commas</div>
+                <input type="text" id="country2" name="country2" placeholder="e.g., India, China, Germany">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="allImporting" name="allImporting">
+                    <label for="allImporting">ALL importing countries</label>
+                </div>
+                <div class="example">Enter countries or check "ALL" for all importing countries</div>
+            </div>
+
+            <!-- Time Series Section -->
+            <div class="form-group">
+                <label>Time Series Types</label>
+                <div class="multi-select-container">
+                    <label><input type="checkbox" name="timeSeries" value="yearly" checked><span>Yearly time series</span></label>
+                    <label><input type="checkbox" name="timeSeries" value="quarterly" checked><span>Quarterly time series</span></label>
+                    <label><input type="checkbox" name="timeSeries" value="monthly" checked><span>Monthly time series</span></label>
+                    <label><input type="checkbox" name="timeSeries" value="trade_indicators"><span>Trade indicators</span></label>
+                </div>
+                <div class="example">Select which time series data to scrape</div>
+            </div>
+
+            <!-- View Type Section -->
+            <div class="form-group">
+                <label>View Type</label>
+                <div class="multi-select-container">
+                    <label><input type="checkbox" name="viewType" value="by_country" checked><span>By Country</span></label>
+                    <label><input type="checkbox" name="viewType" value="by_product" checked><span>By Product</span></label>
+                    <label><input type="checkbox" name="viewType" value="by_service"><span>By Service</span></label>
+                </div>
+                <div class="example">Select data view perspectives to scrape</div>
+            </div>
+
+            <!-- Values Type Section -->
+            <div class="form-group">
+                <label>Values Type</label>
+                <div class="multi-select-container">
+                    <label><input type="checkbox" name="valuesType" value="values" checked><span>Values</span></label>
+                    <label><input type="checkbox" name="valuesType" value="quantities"><span>Quantities</span></label>
+                    <label><input type="checkbox" name="valuesType" value="growth_value"><span>Growth in value</span></label>
+                    <label><input type="checkbox" name="valuesType" value="growth_quantity"><span>Growth in quantity</span></label>
+                    <label><input type="checkbox" name="valuesType" value="share_value"><span>Share in value %</span></label>
+                    <label><input type="checkbox" name="valuesType" value="unit_values"><span>Unit values</span></label>
+                    <label><input type="checkbox" name="valuesType" value="growth_unit_values"><span>Growth on unit values</span></label>
+                    <label><input type="checkbox" name="valuesType" value="index_values"><span>Index on values</span></label>
+                    <label><input type="checkbox" name="valuesType" value="index_unit_values"><span>Index on unit values</span></label>
+                </div>
+                <div class="example">Select which value metrics to scrape</div>
+            </div>
+
+            <!-- Credentials Section -->
+            <div class="section-title">🔐 TradeMap Credentials</div>
+            
+            <div class="form-group">
+                <label for="email">TradeMap Email</label>
+                <input type="email" id="email" name="email" placeholder="your-email@example.com" required>
+                <div class="example">Your TradeMap account email</div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">TradeMap Password</label>
+                <input type="password" id="password" name="password" placeholder="Your password" required>
+                <div class="example">Your TradeMap account password</div>
             </div>
 
             <button type="submit" id="submitBtn">
@@ -204,32 +349,112 @@
         const submitBtn = document.getElementById('submitBtn');
         const btnText = document.getElementById('btnText');
 
+        // Helper function to get checked values from checkbox group
+        function getCheckedValues(name) {
+            const checkboxes = document.querySelectorAll(`input[name="${name}"]:checked`);
+            return Array.from(checkboxes).map(cb => cb.value);
+        }
+
+        // Toggle input field based on "ALL" checkbox
+        document.getElementById('allHsCodes').addEventListener('change', function() {
+            document.getElementById('hscode').disabled = this.checked;
+            if (this.checked) document.getElementById('hscode').value = '';
+        });
+
+        document.getElementById('allExporting').addEventListener('change', function() {
+            document.getElementById('country1').disabled = this.checked;
+            if (this.checked) document.getElementById('country1').value = '';
+        });
+
+        document.getElementById('allImporting').addEventListener('change', function() {
+            document.getElementById('country2').disabled = this.checked;
+            if (this.checked) document.getElementById('country2').value = '';
+        });
+
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
+            // Check "ALL" options
+            const allHsCodes = document.getElementById('allHsCodes').checked;
+            const allExporting = document.getElementById('allExporting').checked;
+            const allImporting = document.getElementById('allImporting').checked;
+
             // Parse comma-separated values and trim
-            const hscodes = document.getElementById('hscode').value
+            const hscodes = allHsCodes ? ['all'] : document.getElementById('hscode').value
                 .split(',')
                 .map(s => s.trim())
                 .filter(s => s.length > 0);
             
-            const countries1 = document.getElementById('country1').value
+            const countries1 = allExporting ? ['all'] : document.getElementById('country1').value
                 .split(',')
                 .map(s => s.trim())
                 .filter(s => s.length > 0);
             
-            const countries2 = document.getElementById('country2').value
+            const countries2 = allImporting ? ['all'] : document.getElementById('country2').value
                 .split(',')
                 .map(s => s.trim())
                 .filter(s => s.length > 0);
+
+            // Get selected time series types
+            const timeSeriesTypes = getCheckedValues('timeSeries');
+            
+            // Get selected view types
+            const viewTypes = getCheckedValues('viewType');
+            
+            // Get selected values types
+            const valuesTypes = getCheckedValues('valuesType');
+            
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+
+            // Validation
+            if (hscodes.length === 0) {
+                alert('Please enter at least one HS code or select "ALL products"');
+                return;
+            }
+            if (countries1.length === 0) {
+                alert('Please enter at least one exporting country or select "ALL"');
+                return;
+            }
+            if (countries2.length === 0) {
+                alert('Please enter at least one importing country or select "ALL"');
+                return;
+            }
+            if (timeSeriesTypes.length === 0) {
+                alert('Please select at least one time series type');
+                return;
+            }
+            if (viewTypes.length === 0) {
+                alert('Please select at least one view type');
+                return;
+            }
+            if (valuesTypes.length === 0) {
+                alert('Please select at least one values type');
+                return;
+            }
 
             const formData = {
                 hscodes: hscodes,
                 exporting_countries: countries1,
-                importing_countries: countries2
+                importing_countries: countries2,
+                time_series_types: timeSeriesTypes,
+                view_types: viewTypes,
+                values_types: valuesTypes,
+                all_hs_codes: allHsCodes,
+                all_exporting: allExporting,
+                all_importing: allImporting,
+                email: email,
+                password: password
             };
 
-            const totalTasks = hscodes.length * countries1.length * countries2.length;
+            // Calculate estimated tasks (rough estimate)
+            const hsCount = allHsCodes ? 'ALL' : hscodes.length;
+            const expCount = allExporting ? 'ALL' : countries1.length;
+            const impCount = allImporting ? 'ALL' : countries2.length;
+            const totalCombinations = timeSeriesTypes.length * viewTypes.length * valuesTypes.length;
+            const totalTasks = (allHsCodes || allExporting || allImporting) 
+                ? `Multiple (${totalCombinations} combinations per product/country pair)`
+                : hscodes.length * countries1.length * countries2.length * totalCombinations;
 
             // Disable form
             submitBtn.disabled = true;
@@ -237,47 +462,79 @@
             responseDiv.style.display = 'none';
 
             try {
-                // Use current host and protocol instead of hardcoded localhost
-                const apiUrl = `${window.location.protocol}//${window.location.host}/api/v1/scrape/trademap/bulk`;
-                const response = await fetch(apiUrl, {
+                const apiBaseUrl = window.location.origin;
+                
+                // Step 1: Generate payloads
+                const payloadResponse = await fetch(`${apiBaseUrl}/api/v1/payload/generate`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
                     },
-                    body: JSON.stringify(formData)
+                    body: JSON.stringify({
+                        payload_type: 'trademap',
+                        config: formData
+                    })
                 });
 
-                const data = await response.json();
+                const payloadData = await payloadResponse.json();
 
-                if (response.ok) {
+                if (!payloadResponse.ok) {
+                    throw new Error(payloadData.message || 'Failed to generate payloads');
+                }
+
+                // Step 2: Auto-queue tasks
+                btnText.innerHTML = '<span class="spinner"></span>Queuing Tasks...';
+                
+                const taskResponse = await fetch(`${apiBaseUrl}/api/v1/tasks/create`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
+                    },
+                    body: JSON.stringify({
+                        scraper_id: 'trademap'
+                    })
+                });
+
+                const taskData = await taskResponse.json();
+
+                if (taskResponse.ok) {
                     responseDiv.className = 'response success';
                     responseDiv.innerHTML = `
-                        <strong>✅ Bulk Tasks Created Successfully!</strong>
+                        <strong>✅ Tasks Generated Successfully!</strong>
                         <div class="task-info">
-                            <div><strong>Total Tasks:</strong> ${data.total_tasks}</div>
-                            <div><strong>Task IDs:</strong> ${data.task_ids.length} tasks queued</div>
-                            <div><strong>HS Codes:</strong> ${hscodes.join(', ')}</div>
-                            <div><strong>Exporting:</strong> ${countries1.join(', ')}</div>
-                            <div><strong>Importing:</strong> ${countries2.join(', ')}</div>
+                            <div><strong>Payloads Created:</strong> ${payloadData.tasksCreated || 'N/A'}</div>
+                            <div><strong>Tasks Queued:</strong> ${taskData.tasks_queued || 'Processing...'}</div>
+                            <div><strong>HS Codes:</strong> ${allHsCodes ? 'ALL PRODUCTS' : hscodes.join(', ')}</div>
+                            <div><strong>Exporting:</strong> ${allExporting ? 'ALL COUNTRIES' : countries1.join(', ')}</div>
+                            <div><strong>Importing:</strong> ${allImporting ? 'ALL COUNTRIES' : countries2.join(', ')}</div>
+                            <div><strong>Time Series:</strong> ${timeSeriesTypes.join(', ')}</div>
+                            <div><strong>View Types:</strong> ${viewTypes.join(', ')}</div>
+                            <div><strong>Values Types:</strong> ${valuesTypes.join(', ')}</div>
+                            <div><strong>Using credentials:</strong> ${email}</div>
                             <div style="margin-top: 10px; font-size: 12px;">
                                 All tasks are now running in the background. Each task will:
                                 <ul style="margin-left: 20px; margin-top: 5px;">
                                     <li>Login to TradeMap</li>
-                                    <li>Scrape Yearly, Quarterly, and Monthly data</li>
+                                    <li>Scrape selected time series data (${timeSeriesTypes.join(', ')})</li>
+                                    <li>Collect data by selected view types (${viewTypes.join(', ')})</li>
+                                    <li>Extract selected value metrics (${valuesTypes.length} types)</li>
                                     <li>Collect both Import and Export statistics</li>
                                     <li>Save results to MongoDB (trademap collection)</li>
                                 </ul>
                                 <strong>⚡ With 12 Parallel Workers + Proxies:</strong><br>
+                                ${typeof totalTasks === 'number' ? `
                                 <strong style="color: #28a745; font-size: 16px;">~${Math.ceil(totalTasks * 10 / 12 / 60)} hours (~${Math.ceil(totalTasks * 10 / 12 / 60 / 24)} days)</strong><br>
                                 <span style="font-size: 12px; color: #666;">
                                     Single worker would take: ~${Math.ceil(totalTasks * 10 / 60)} hours (${Math.ceil(totalTasks * 10 / 60 / 24)} days)<br>
                                     Speed improvement: <strong>12x faster!</strong>
-                                </span>
+                                </span>` : `<span style="color: #28a745;">Processing ALL combinations - check task queue for progress</span>`}
                             </div>
                         </div>
                     `;
                 } else {
-                    throw new Error(data.detail || 'Failed to queue tasks');
+                    throw new Error(taskData.detail || 'Failed to queue tasks');
                 }
             } catch (error) {
                 responseDiv.className = 'response error';

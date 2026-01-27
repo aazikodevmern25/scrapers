@@ -1,8 +1,8 @@
 import pandas as pd
-import decrypt
+from tools import decrypt
 from utils import FetchCountries, client, db
 import copy
-from decrypt import decrypt_exim_data
+from tools.decrypt import decrypt_exim_data, encrypt_exim_data
 from concurrent.futures import ThreadPoolExecutor
 import requests as pdf_req
 from curl_cffi import requests
@@ -113,56 +113,129 @@ def ParseDates(startDate, endDate):
         raise
 
 
-def AuthenticateSession():
-    try:
-        logger.info("Starting authentication process")
-        sess = requests.Session(impersonate="chrome131")
-        payload = {"email_id": "chhabinrai2017@gmail.com", "password": "Test@1234"}
-        
-        req = sess.put("https://web.eximpedia.app/backend/auths/login", json=payload, headers=headers)
-        logger.info(f"Login request: {req.url} - Status: {req.status_code}")
-        
-        if req.status_code != 200:
-            logger.error(f"Login request failed with status {req.status_code}")
-            return None, None
+# Global session cache to reuse authenticated sessions
+_cached_session = None
+_cached_auth_data = None
+_cache_time = None
+_cached_email = None
+
+def AuthenticateSession(force_new=False, email=None, password=None):
+    global _cached_session, _cached_auth_data, _cache_time, _cached_email
+    import time
+    import random
+    
+    # Use default credentials if not provided
+    if not email:
+        email = "Priyam@eximpedia.app"
+    if not password:
+        password = "Priyam@177"
+    
+    # Reuse cached session if valid (within 10 minutes) AND using same credentials
+    if not force_new and _cached_session and _cached_auth_data and _cache_time and _cached_email:
+        if time.time() - _cache_time < 600 and _cached_email == email:  # 10 minutes, same email
+            logger.info("Reusing cached authentication session")
+            return _cached_session, _cached_auth_data
+    
+    max_retries = 3
+    base_delay = 5  # seconds
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            logger.info(f"Authentication attempt {attempt}/{max_retries}")
             
-        js = req.json()['data']
-        if js['msg'] != "Access Granted":
-            logger.error(f"Authentication failed: {js['msg']}")
-            return None, None
+            # Add random delay before each attempt (except first)
+            if attempt > 1:
+                delay = base_delay * attempt + random.uniform(1, 3)
+                logger.info(f"Waiting {delay:.1f}s before retry...")
+                time.sleep(delay)
             
-        adxToken = js['adxToken']
-        customerId = js['customer_id']
-        userId = js['user_id']
-        expTime = int(GetExpTime(adxToken)) * 1000
-        
-        headers['Adxtoken'] = adxToken
-        headers['Ddxtokenexpiretime'] = str(expTime)
-        
-        logger.info(f"Authentication successful - Customer ID: {customerId}, User ID: {userId}")
-        logger.debug(f"Token expiration time: {expTime}")
-        
-        return sess, {
-            'adxToken': adxToken,
-            'customerId': customerId,
-            'userId': userId,
-            'expTime': expTime
-        }
-    except Exception as e:
-        logger.error(f"Authentication failed: {e}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return None, None
+            sess = requests.Session(impersonate="chrome131")
+            payload = {"email_id": email, "password": password}
+            
+            logger.info("Attempting login to web.eximpedia.app")
+            req = sess.put(
+                "https://web.eximpedia.app/backend/auths/login", 
+                json=payload, 
+                headers=headers, 
+                timeout=90,  # Increased timeout
+                allow_redirects=True
+            )
+            logger.info(f"Login request: {req.url} - Status: {req.status_code}")
+            
+            if req.status_code != 200:
+                logger.error(f"Login request failed with status {req.status_code}")
+                if attempt < max_retries:
+                    continue
+                return None, None
+                
+            js = req.json()['data']
+            if js['msg'] != "Access Granted":
+                logger.error(f"Authentication failed: {js['msg']}")
+                if attempt < max_retries:
+                    continue
+                return None, None
+                
+            adxToken = js['adxToken']
+            customerId = js['customer_id']
+            userId = js['user_id']
+            expTime = int(GetExpTime(adxToken)) * 1000
+            
+            headers['Adxtoken'] = adxToken
+            headers['Ddxtokenexpiretime'] = str(expTime)
+            
+            logger.info(f"✅ Authentication successful - Customer ID: {customerId}, User ID: {userId}")
+            
+            auth_data = {
+                'adxToken': adxToken,
+                'customerId': customerId,
+                'userId': userId,
+                'expTime': expTime
+            }
+            
+            # Cache the session
+            _cached_session = sess
+            _cached_auth_data = auth_data
+            _cache_time = time.time()
+            _cached_email = email
+            
+            return sess, auth_data
+            
+        except Exception as e:
+            logger.error(f"Authentication attempt {attempt} failed: {e}")
+            if attempt < max_retries:
+                logger.info(f"Will retry in {base_delay * (attempt + 1)}s...")
+                continue
+            logger.error(f"All {max_retries} authentication attempts failed")
+            return None, None
+    
+    return None, None
 
 
-def GetTaxonomyData(sess, country, mode):
+def GetTaxonomyData(sess, country, mode, retry_count=0):
+    import time
+    max_retries = 3
+    
     try:
-        logger.info(f"Retrieving taxonomy data for {country.upper()} - {mode.upper()}")
+        logger.info(f"Retrieving taxonomy data for {country.upper()} - {mode.upper()} (attempt {retry_count + 1}/{max_retries})")
         
         req = sess.get(
             f'https://web.eximpedia.app/backend/taxonomies?countryName={country.upper()}&tradeType={mode.upper()}',
-            headers=headers
+            headers=headers,
+            timeout=60
         )
         logger.info(f"Taxonomy request: {req.url} - Status: {req.status_code}")
+        
+        # If 401 Unauthorized, re-authenticate and retry
+        if req.status_code == 401:
+            logger.warning(f"Taxonomy request returned 401 - session expired, re-authenticating...")
+            if retry_count < max_retries - 1:
+                # Force new authentication
+                new_sess, new_auth = AuthenticateSession(force_new=True)
+                if new_sess and new_auth:
+                    time.sleep(2)  # Small delay before retry
+                    return GetTaxonomyData(new_sess, country, mode, retry_count + 1)
+            logger.error("Max retries exceeded for taxonomy request")
+            return None
         
         # Eximpedia returns encrypted data even with 401 status - check for cryptexim field
         response_json = req.json()
@@ -170,14 +243,26 @@ def GetTaxonomyData(sess, country, mode):
         
         if 'cryptexim' not in response_json:
             logger.error(f"Response does not contain 'cryptexim' key. Keys: {response_json.keys()}")
-            logger.error(f"Full response: {json.dumps(response_json, indent=2)[:1000]}")
+            if retry_count < max_retries - 1:
+                time.sleep(3)
+                return GetTaxonomyData(sess, country, mode, retry_count + 1)
             return None
             
         txn = decrypt_exim_data(response_json['cryptexim'])
         
         if txn is None:
             logger.error("Decryption returned None")
-            logger.error(f"Encrypted data sample: {response_json['cryptexim'][:100]}...")
+            if retry_count < max_retries - 1:
+                time.sleep(3)
+                return GetTaxonomyData(sess, country, mode, retry_count + 1)
+            return None
+        
+        # Check if data exists
+        if not txn.get('data') or len(txn['data']) == 0:
+            logger.error("Taxonomy response has no data")
+            if retry_count < max_retries - 1:
+                time.sleep(3)
+                return GetTaxonomyData(sess, country, mode, retry_count + 1)
             return None
         
         taxonomy_info = {
@@ -189,18 +274,15 @@ def GetTaxonomyData(sess, country, mode):
             'sort_term': txn['data'][0]['fields']['records_aggregation']['sortTerm']
         }
         
-        logger.info("Taxonomy data retrieved successfully:")
-        logger.info(f"  - HS Code Classification: {taxonomy_info['hs_code_digit_classification']} digits")
-        logger.info(f"  - Date Field: {taxonomy_info['date_field']}")
-        logger.info(f"  - Sort Term: {taxonomy_info['sort_term']}")
-        logger.info(f"  - All Fields Count: {len(taxonomy_info['all_fields'])}")
-        logger.info(f"  - Group Expressions Count: {len(taxonomy_info['group_expressions'])}")
-        logger.info(f"  - Purchasable Fields Count: {len(taxonomy_info['purchasable'])}")
-        
+        logger.info("✅ Taxonomy data retrieved successfully")
         return taxonomy_info
+        
     except Exception as e:
         logger.error(f"Taxonomy data retrieval failed for {country} - {mode}: {e}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
+        if retry_count < max_retries - 1:
+            logger.info(f"Retrying taxonomy request in 3 seconds...")
+            time.sleep(3)
+            return GetTaxonomyData(sess, country, mode, retry_count + 1)
         return None
 
 
@@ -210,13 +292,77 @@ def BuildRequestPayload(auth_data, taxonomy_info, sd, ed, hsc, country, mode, pa
         logger.debug(f"Date range: {sd} to {ed}")
         logger.debug(f"HS Code: {hsc}")
         
+        # Get country code - try static files first, then use fallback mapping
+        cid = None
         if mode == 'import':
-            cid = impCn[country]['code_iso_3']
+            if country in impCn:
+                cid = impCn[country]['code_iso_3']
+            else:
+                logger.warning(f"Country '{country}' not in static import file, using fallback ISO code")
         elif mode == 'export':
-            cid = expCn[country]['code_iso_3']
+            if country in expCn:
+                cid = expCn[country]['code_iso_3']
+            else:
+                logger.warning(f"Country '{country}' not in static export file, using fallback ISO code")
         else:
             logger.error(f"Invalid mode: {mode}")
             return None
+        
+        # Fallback: Comprehensive ISO 3166-1 alpha-3 codes for all Eximpedia countries
+        if not cid:
+            fallback_codes = {
+                # Asia
+                'India': 'IND', 'Indonesia': 'IDN', 'Bangladesh': 'BGD', 'Pakistan': 'PAK',
+                'Philippines': 'PHL', 'Vietnam': 'VNM', 'Vietnam_2022': 'VNM_NEW',
+                'Turkey': 'TUR', 'Srilanka': 'LKA', 'Kazakhstan': 'KAZ', 'Uzbekistan': 'UZB',
+                'Malaysia': 'MYS', 'Singapore': 'SGP', 'Thailand': 'THA',
+                'Myanmar': 'MMR', 'Cambodia': 'KHM', 'Laos': 'LAO', 'Brunei': 'BRN',
+                'China': 'CHN', 'Japan': 'JPN', 'South Korea': 'KOR', 'Taiwan': 'TWN',
+                'Hong Kong': 'HKG', 'Nepal': 'NPL', 'Bhutan': 'BTN', 'Maldives': 'MDV',
+                'Afghanistan': 'AFG', 'Iran': 'IRN', 'Iraq': 'IRQ', 'Israel': 'ISR',
+                'Saudi Arabia': 'SAU', 'UAE': 'ARE', 'United Arab Emirates': 'ARE',
+                # South America
+                'Argentina': 'ARG', 'Bl_brazil': 'BRA', 'Brazil': 'BRA', 'Chile': 'CHL',
+                'Colombia': 'COL', 'Equador': 'ECU', 'Ecuador': 'ECU', 'Paraguay': 'PRY',
+                'Peru': 'PER', 'Uruguay': 'URY', 'Venezuela': 'VEN', 'Bolivia': 'BOL',
+                # Central America
+                'Costarica': 'CRI', 'Costa Rica': 'CRI', 'Panama': 'PAN', 'Nicaragua': 'NIC',
+                # North America
+                'Mexico': 'MEX', 'Usa': 'USA', 'USA': 'USA', 'United States': 'USA',
+                'Canada': 'CAN',
+                # Africa
+                'Ghana': 'GHA', 'Nigeria': 'NGA', 'Ethiopia': 'ETH', 'Tanzania': 'TZA',
+                'Uganda': 'UGA', 'Cameroon': 'CMR', 'Ivory_coast': 'CIV', 'Botswana': 'BWA',
+                'Namibia': 'NAM', 'Lesotho': 'LSO', 'Rwanda': 'RWA', 'Zimbabwe': 'ZWE',
+                'Kenya': 'KEN', 'Burundi': 'BDI', 'Liberia': 'LBR', 'South_sudan': 'SSD',
+                'Angola': 'AGO', 'South Africa': 'ZAF', 'Egypt': 'EGY', 'Morocco': 'MAR',
+                'Algeria': 'DZA', 'Tunisia': 'TUN',
+                # Europe
+                'Russia': 'RSA', 'Ukraine': 'UKR', 'Moldova': 'MDA',
+                'Germany': 'DEU', 'France': 'FRA', 'United Kingdom': 'GBR', 'UK': 'GBR',
+                'Italy': 'ITA', 'Spain': 'ESP', 'Poland': 'POL', 'Netherlands': 'NLD',
+                'Belgium': 'BEL', 'Greece': 'GRC', 'Portugal': 'PRT', 'Sweden': 'SWE',
+                'Austria': 'AUT', 'Switzerland': 'CHE', 'Denmark': 'DNK', 'Finland': 'FIN',
+                'Norway': 'NOR', 'Ireland': 'IRL', 'Czech Republic': 'CZE', 'Romania': 'ROU',
+                'Hungary': 'HUN', 'Bulgaria': 'BGR', 'Slovakia': 'SVK', 'Croatia': 'HRV',
+                # Oceania
+                'Australia': 'AUS', 'New Zealand': 'NZL'
+            }
+            # Try case-insensitive lookup
+            cid = fallback_codes.get(country)
+            if not cid:
+                # Try case-insensitive match
+                country_lower = country.lower()
+                for k, v in fallback_codes.items():
+                    if k.lower() == country_lower:
+                        cid = v
+                        break
+            
+            if cid:
+                logger.info(f"Using fallback ISO code for {country}: {cid}")
+            else:
+                logger.error(f"Country '{country}' not supported and no fallback code available")
+                return None
             
         logger.debug(f"Country code resolved: {cid}")
         
@@ -252,18 +398,59 @@ def BuildRequestPayload(auth_data, taxonomy_info, sd, ed, hsc, country, mode, pa
         rp['AdxTokenExpireTime'] = auth_data['expTime']
         
         rp['matchExpressions'][1]['fieldValue'] = [hsc]
-        if taxonomy_info['hs_code_digit_classification'] == 6:
+        hs_classification = taxonomy_info['hs_code_digit_classification']
+        hsc_len = len(str(hsc))
+        
+        logger.info(f"🔍 DEBUG: HS classification={hs_classification}, Input HS code={hsc}, Length={hsc_len}")
+        
+        # Try 6-digit exact match regardless of classification to match website behavior
+        rp['matchExpressions'][1]['fieldValueArr'] = [
+            {"fieldValueLeft": int(hsc), "fieldValueRight": int(hsc)}
+        ]
+        logger.info(f"HS Code set for 6-digit exact match: {hsc}")
+        
+        # Keep original logic for reference
+        if False and hs_classification == 6:
+            # 6-digit classification - exact match
             rp['matchExpressions'][1]['fieldValueArr'] = [
                 {"fieldValueLeft": int(hsc), "fieldValueRight": int(hsc)}
             ]
-            logger.debug(f"HS Code set for 6-digit classification: {hsc}")
-        else:
+            logger.info(f"HS Code set for 6-digit classification: {hsc}")
+        elif False and hs_classification == 8:
+            # 8-digit classification - add 2 digits padding
             rp['matchExpressions'][1]['fieldValueArr'] = [
                 {"fieldValueLeft": int(f'{hsc}00'), "fieldValueRight": int(f'{hsc}99')}
             ]
-            logger.debug(f"HS Code set for 8-digit classification: {hsc}00-{hsc}99")
+            logger.info(f"HS Code set for 8-digit classification: {hsc}00-{hsc}99")
+        elif hs_classification == 10:
+            # 10-digit classification - add 4 digits padding
+            rp['matchExpressions'][1]['fieldValueArr'] = [
+                {"fieldValueLeft": int(f'{hsc}0000'), "fieldValueRight": int(f'{hsc}9999')}
+            ]
+            logger.info(f"HS Code set for 10-digit classification: {hsc}0000-{hsc}9999")
+        else:
+            # Default - calculate padding based on classification
+            padding_needed = hs_classification - hsc_len
+            if padding_needed > 0:
+                left_pad = '0' * padding_needed
+                right_pad = '9' * padding_needed
+                rp['matchExpressions'][1]['fieldValueArr'] = [
+                    {"fieldValueLeft": int(f'{hsc}{left_pad}'), "fieldValueRight": int(f'{hsc}{right_pad}')}
+                ]
+                logger.info(f"HS Code set for {hs_classification}-digit classification: {hsc}{left_pad}-{hsc}{right_pad}")
+            else:
+                rp['matchExpressions'][1]['fieldValueArr'] = [
+                    {"fieldValueLeft": int(hsc), "fieldValueRight": int(hsc)}
+                ]
+                logger.info(f"HS Code set for {hs_classification}-digit classification: {hsc} (exact match)")
         
-        logger.info("Request payload built successfully")
+        # Log the actual HS code range being sent
+        hs_range = rp['matchExpressions'][1]['fieldValueArr'][0]
+        logger.info(f"🔍 DEBUG: Sending HS code range to API: {hs_range['fieldValueLeft']} - {hs_range['fieldValueRight']}")
+        
+        logger.info(f"Request payload built successfully")
+        logger.info(f"📋 Payload details: Country={country.upper()}, CountryCode={cid.upper()}, TradeType={mode.upper()}, HSCode={hsc}")
+        logger.info(f"📋 Date range: {sd} to {ed}, HS classification: {taxonomy_info['hs_code_digit_classification']}-digit")
         return rp
     except Exception as e:
         logger.error(f"Payload building failed: {e}")
@@ -274,15 +461,27 @@ def BuildRequestPayload(auth_data, taxonomy_info, sd, ed, hsc, country, mode, pa
 def ExecuteAPIRequest(sess, payload):
     try:
         logger.info(f"Executing API request (start: {payload.get('start', 0)}, length: {payload.get('length', 1000)})")
+        logger.info(f"🔍 FULL PAYLOAD: {json.dumps(payload, indent=2)}")
         
+        # Add delay to avoid rate limiting
+        import time
+        time.sleep(2)
+        
+        # Send plain JSON payload - server expects unencrypted requests
         req = sess.post(
             'https://web.eximpedia.app/backend/trade/shipments/explore/records',
             headers=headers,
-            json=payload
+            json=payload,
+            timeout=60  # Increase timeout to 60 seconds
         )
         logger.info(f"API request: {req.url} - Status: {req.status_code}")
         
-        if req.status_code != 200:
+        if req.status_code == 429:
+            logger.warning(f"Rate limited (429) - waiting 10 seconds before retry")
+            import time
+            time.sleep(10)
+            return None
+        elif req.status_code != 200:
             logger.error(f"API request failed with status {req.status_code}")
             try:
                 error_response = decrypt_exim_data(req.json()['cryptexim'])
@@ -304,10 +503,15 @@ def ExecuteAPIRequest(sess, payload):
         return None
 
 
-def SaveToDatabase(response_data, hsc, country, mode):
+def SaveToDatabase(response_data, hsc, country, mode, start_date=None, end_date=None):
     try:
         logger.info(f"Saving data to database for {country} - {mode}")
         
+        new_records = response_data.get('data', [])
+        new_record_count = len(new_records)
+        
+        # Always create a new document per scrape to avoid MongoDB 16MB document size limit
+        # Do NOT aggregate - each date range gets its own document
         data = {
             "scraper_name": "eximpedia_scraper",
             "hscode": hsc,
@@ -319,32 +523,34 @@ def SaveToDatabase(response_data, hsc, country, mode):
             "mode": mode.lower(),
             "month": datetime.datetime.now().strftime("%b"),
             "year": datetime.datetime.now().strftime("%Y"),
-            "data": response_data.get('data', []),
-            "record_count": len(response_data.get('data', [])),
+            "data": new_records,
+            "record_count": new_record_count,
             "country": country,
+            "start_date": start_date,
+            "end_date": end_date,
             "date_created": datetime.datetime.now(),
             "date_updated": datetime.datetime.now()
         }
         
         result = exCollection.insert_one(data)
-        logger.info(f"Data saved successfully to MongoDB with ID: {result.inserted_id}")
-        logger.info(f"Record count: {len(response_data.get('data', []))}")
-        
+        logger.info(f"NEW document created with ID: {result.inserted_id}")
+        logger.info(f"Record count: {new_record_count}, Date range: {start_date} to {end_date}")
         return result.inserted_id
     except Exception as e:
         logger.error(f"Database save failed: {e}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
         return None
 
 
-
-def ScrapeEximpedia(sd, ed, hsc, country, mode):
+def ScrapeEximpedia(sd, ed, hsc, country, mode, email=None, password=None):
     try:
         logger.info(f"=== Starting Eximpedia scraping ===")
         logger.info(f"Parameters: HS Code: {hsc}, Country: {country}, Mode: {mode}")
         logger.info(f"Date range: {sd} to {ed}")
+        if email:
+            logger.info(f"Using custom credentials: {email}")
         
-        sess, auth_data = AuthenticateSession()
+        # Authenticate and get session (with custom credentials if provided)
+        sess, auth_data = AuthenticateSession(email=email, password=password)
         if not sess or not auth_data:
             logger.error("Authentication failed, aborting scraping")
             return "Authentication Failed"
@@ -358,19 +564,43 @@ def ScrapeEximpedia(sd, ed, hsc, country, mode):
         all_records = []
         page_start = 0
         page_size = 1000
+        max_retries = 3
         
         while True:
             payload = BuildRequestPayload(auth_data, taxonomy_info, sd, ed, hsc, country, mode, page_start, page_size)
             if not payload:
-                logger.error("Payload building failed, aborting scraping")
+                logger.error("Payload building failed")
+                # Save partial data if we have any
+                if all_records:
+                    logger.warning(f"Saving {len(all_records)} partial records due to payload build failure")
+                    break
                 return "Payload Build Failed"
-                
-            response_data = ExecuteAPIRequest(sess, payload)
+            
+            # Retry API request on failure with exponential backoff
+            response_data = None
+            for retry in range(max_retries):
+                response_data = ExecuteAPIRequest(sess, payload)
+                if response_data:
+                    break
+                # Exponential backoff: 5s, 10s, 20s
+                wait_time = 5 * (2 ** retry)
+                logger.warning(f"API request failed, retry {retry + 1}/{max_retries} - waiting {wait_time}s")
+                import time
+                time.sleep(wait_time)
+            
             if not response_data:
-                logger.error("API request failed, aborting scraping")
+                logger.error(f"API request failed after {max_retries} retries")
+                # Save partial data if we have any
+                if all_records:
+                    logger.warning(f"Saving {len(all_records)} partial records due to API failure")
+                    break
                 return "API Request Failed"
             
             current_records = response_data.get('data', [])
+            if not current_records:
+                logger.info("No more records returned, ending pagination")
+                break
+            
             all_records.extend(current_records)
             
             total_available = response_data.get('recordsTotal', len(current_records))
@@ -378,18 +608,23 @@ def ScrapeEximpedia(sd, ed, hsc, country, mode):
             
             # Break if we got all records or less than page size (last page)
             if len(current_records) < page_size or len(all_records) >= total_available:
+                logger.info(f"Pagination complete: fetched all available records")
                 break
                 
             page_start += page_size
         
-        # Save all collected records
+        # Save all collected records (even if partial)
+        if not all_records:
+            logger.warning("No records fetched - API returned empty data")
+            return "No Records Available"
+        
         final_response = {'data': all_records}
-        saved_id = SaveToDatabase(final_response, hsc, country, mode)
+        saved_id = SaveToDatabase(final_response, hsc, country, mode, start_date=sd, end_date=ed)
         if not saved_id:
             logger.error("Database save failed")
             return "Database Save Failed"
             
-        logger.info(f"=== Eximpedia scraping completed successfully ===")
+        logger.info(f"=== Eximpedia scraping completed ===")
         logger.info(f"Total records scraped: {len(all_records)}")
         logger.info(f"MongoDB ID: {saved_id}")
         
@@ -470,7 +705,7 @@ def ScrapeEximpediaBatch(lst_of_dict):
                 page_start += page_size
             
             final_response = {'data': all_records}
-            saved_id = SaveToDatabase(final_response, hscode, country, mode)
+            saved_id = SaveToDatabase(final_response, hscode, country, mode, start_date=sd, end_date=ed)
             if not saved_id:
                 logger.error("Database save failed")
                 return "Database Save Failed"

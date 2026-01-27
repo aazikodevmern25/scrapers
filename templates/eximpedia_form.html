@@ -66,6 +66,9 @@
         }
 
         input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        input[type="number"],
         select {
             width: 100%;
             padding: 12px 15px;
@@ -77,6 +80,9 @@
         }
 
         input[type="text"]:focus,
+        input[type="email"]:focus,
+        input[type="password"]:focus,
+        input[type="number"]:focus,
         select:focus {
             outline: none;
             border-color: #f5576c;
@@ -179,6 +185,38 @@
         .task-info div {
             margin-bottom: 5px;
         }
+
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            text-decoration: none;
+            color: #333;
+        }
+
+        .nav-tab:hover {
+            border-color: #f5576c;
+            color: #f5576c;
+        }
+
+        .nav-tab.active {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border-color: #f5576c;
+        }
     </style>
 </head>
 <body>
@@ -191,8 +229,13 @@
             </div>
         </div>
 
+        <div class="nav-tabs">
+            <a href="/eximpedia-form" class="nav-tab active">📦 Standard Search</a>
+            <a href="/eximpedia-mirror-data-form" class="nav-tab">🔄 Mirror Data</a>
+        </div>
+
         <div class="info-note">
-            <strong>📝 Note:</strong> Enter dates in MM/DD/YYYY format or just YYYY. If left empty, current year will be used. Date ranges will automatically be split into 15-day chunks for optimal processing.
+            <strong>📝 Note:</strong> Enter dates in MM/DD/YYYY format or just YYYY. If left empty, current year will be used. Date ranges will be split into chunks based on your chunk size setting below.
         </div>
 
         <form id="scrapeForm">
@@ -204,29 +247,50 @@
 
             <div class="form-group">
                 <label for="country">Country</label>
-                <select id="country" name="country" required>
-                    <option value="">Select one country</option>
-                    <option value="India">India</option>
-                    <option value="United States">United States</option>
-                    <option value="China">China</option>
-                    <option value="United Kingdom">United Kingdom</option>
-                    <option value="Germany">Germany</option>
-                    <option value="Japan">Japan</option>
-                    <option value="France">France</option>
-                    <option value="Canada">Canada</option>
-                    <option value="Australia">Australia</option>
-                    <option value="Brazil">Brazil</option>
-                    <option value="South Korea">South Korea</option>
-                    <option value="Italy">Italy</option>
-                    <option value="Spain">Spain</option>
-                    <option value="Mexico">Mexico</option>
-                    <option value="Indonesia">Indonesia</option>
-                    <option value="Netherlands">Netherlands</option>
-                    <option value="Saudi Arabia">Saudi Arabia</option>
-                    <option value="Turkey">Turkey</option>
-                    <option value="Switzerland">Switzerland</option>
-                    <option value="Poland">Poland</option>
-                </select>
+                <input type="text" id="country" name="country" list="countries" placeholder="Type or select a country" required>
+                <datalist id="countries">
+                    <option value="India">
+                    <option value="United States">
+                    <option value="China">
+                    <option value="United Kingdom">
+                    <option value="Germany">
+                    <option value="Japan">
+                    <option value="France">
+                    <option value="Canada">
+                    <option value="Australia">
+                    <option value="Brazil">
+                    <option value="South Korea">
+                    <option value="Italy">
+                    <option value="Spain">
+                    <option value="Mexico">
+                    <option value="Indonesia">
+                    <option value="Netherlands">
+                    <option value="Saudi Arabia">
+                    <option value="Turkey">
+                    <option value="Switzerland">
+                    <option value="Poland">
+                    <option value="Bangladesh">
+                    <option value="Vietnam">
+                    <option value="Thailand">
+                    <option value="Malaysia">
+                    <option value="Singapore">
+                    <option value="Pakistan">
+                    <option value="Nigeria">
+                    <option value="Egypt">
+                    <option value="South Africa">
+                    <option value="Argentina">
+                    <option value="Chile">
+                    <option value="Colombia">
+                    <option value="Peru">
+                    <option value="UAE">
+                    <option value="Israel">
+                    <option value="Russia">
+                    <option value="Ukraine">
+                    <option value="Philippines">
+                    <option value="Kenya">
+                    <option value="Morocco">
+                </datalist>
+                <div class="example">Type to search or select from dropdown</div>
             </div>
 
             <div class="form-group">
@@ -236,6 +300,24 @@
                     <option value="import">Import</option>
                     <option value="export">Export</option>
                 </select>
+            </div>
+
+            <div class="form-group">
+                <label for="chunk_days">Chunk Size (Days)</label>
+                <input type="number" id="chunk_days" name="chunk_days" value="180" min="1" max="365" placeholder="180" required>
+                <div class="example">Split date range into chunks of this many days (e.g., 90, 180, 365)</div>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Eximpedia Email</label>
+                <input type="email" id="email" name="email" value="aazikodevmern25@gmail.com" placeholder="your-email@example.com" required>
+                <div class="example">Your Eximpedia account email</div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Eximpedia Password</label>
+                <input type="password" id="password" name="password" value="Aaziko@123" placeholder="Your password" required>
+                <div class="example">Your Eximpedia account password</div>
             </div>
 
             <div class="form-group">
@@ -275,6 +357,9 @@
             
             const country = document.getElementById('country').value;
             const mode = document.getElementById('mode').value;
+            const chunk_days = parseInt(document.getElementById('chunk_days').value) || 180;
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
             let start_date = document.getElementById('start_date').value.trim();
             let end_date = document.getElementById('end_date').value.trim();
 
@@ -298,6 +383,9 @@
                 hscodes: hscodes,
                 countries: country,
                 mode: mode,
+                chunk_days: chunk_days,
+                email: email,
+                password: password,
                 start_date: start_date,
                 end_date: end_date
             };
@@ -336,6 +424,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
                     },
                     body: JSON.stringify({
                         scraper_id: 'eximpedia'
@@ -358,10 +447,10 @@
                             <div style="margin-top: 10px; padding: 10px; background: #e7f3ff; border-radius: 4px;">
                                 <strong>ℹ️ Processing Details:</strong>
                                 <ul style="margin-left: 20px; margin-top: 5px;">
-                                    <li>Date ranges automatically split into 15-day chunks</li>
+                                    <li>Date ranges split into ${chunk_days}-day chunks</li>
                                     <li>Each task processes one chunk independently</li>
                                     <li>Data will be saved to MongoDB (eximpedia collection)</li>
-                                    <li>Tasks run in parallel using Celery workers</li>
+                                    <li>Using credentials: ${email}</li>
                                 </ul>
                             </div>
                         </div>

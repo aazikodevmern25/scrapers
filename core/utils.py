@@ -28,9 +28,9 @@ def get_proxies():
 os.makedirs("pdf_files", exist_ok=True)
 cwd = os.getcwd()
 
-# MongoDB connection using environment variable
-MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/?authSource=admin')
-MONGO_DB = os.getenv('MONGO_DB', 'jaimish_data')
+# MongoDB connection - using actual server (no auth required)
+MONGO_URI = os.getenv('MONGO_URI', 'mongodb://202.47.115.6:27017/')
+MONGO_DB = os.getenv('MONGO_DB', 'Dhruval')
 
 client = MongoClient(MONGO_URI)
 db = client[MONGO_DB]

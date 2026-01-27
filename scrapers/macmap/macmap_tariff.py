@@ -86,13 +86,58 @@ hscodes_full = {
 logger.info(f"Loaded {len(countries)} countries and {len(hscodes_full)} HS codes")
 
 def get_country_code(country_name):
-    """Return country code using case-insensitive lookup."""
+    """Return country code using case-insensitive lookup with fuzzy matching for typos."""
     if country_name in countries:
         return countries[country_name]
 
     normalized = country_name.strip().lower()
     if normalized in countries_lower_map:
         return countries_lower_map[normalized]
+    
+    # Common typo corrections
+    typo_corrections = {
+        'inida': 'india',
+        'indai': 'india',
+        'inda': 'india',
+        'chian': 'china',
+        'chna': 'china',
+        'untied states': 'united states of america',
+        'usa': 'united states of america',
+        'uk': 'united kingdom',
+        'uae': 'united arab emirates',
+        'brasil': 'brazil',
+        'gemany': 'germany',
+        'germny': 'germany',
+        'japen': 'japan',
+        'japn': 'japan',
+        'franec': 'france',
+        'itlay': 'italy',
+        'spaon': 'spain',
+        'mexcio': 'mexico',
+        'cananda': 'canada',
+    }
+    
+    # Check typo corrections
+    if normalized in typo_corrections:
+        corrected = typo_corrections[normalized]
+        if corrected in countries_lower_map:
+            logger.info(f"Auto-corrected typo: '{country_name}' -> '{corrected}'")
+            return countries_lower_map[corrected]
+    
+    # Fuzzy match: find closest country name
+    best_match = None
+    best_score = 0
+    for name in countries_lower_map.keys():
+        # Simple similarity: count matching characters
+        common = sum(1 for c in normalized if c in name)
+        score = common / max(len(normalized), len(name))
+        if score > best_score and score > 0.7:  # 70% similarity threshold
+            best_score = score
+            best_match = name
+    
+    if best_match:
+        logger.info(f"Fuzzy matched: '{country_name}' -> '{best_match}' (score: {best_score:.2f})")
+        return countries_lower_map[best_match]
 
     raise KeyError(f"Unknown country '{country_name}'. Available sample: {list(countries)[:5]}")
 
@@ -179,9 +224,10 @@ def ProcessTradeAgreement(js, c1_id, c2_id, year, hsc):
 
 def ScrapeMacmapTariff(country1, country2, year, hsc):
     logger.info(f"Scraping Macmap tariff for countries: {country1}, {country2}, year: {year}, HS code: {hsc}")
-    c1_id = countries[country1]
-    c2_id = countries[country2]
-    item = hscodes_full[hsc]
+    c1_id = get_country_code(country1)
+    c2_id = get_country_code(country2)
+    # Handle missing HS codes gracefully
+    item = hscodes_full.get(hsc, f"HS Code {hsc}")
     
     # Use Webshare residential proxies for MacMap (bypasses anti-bot)
     req = SendGetRequests(
@@ -205,9 +251,16 @@ def ScrapeMacmapTariff(country1, country2, year, hsc):
     
     custom_tariff_data = []
     json_data = req.json()
-    logger.info(f"Found {len(json_data['CustomDuty'])} custom duty items")
-    for i in json_data["CustomDuty"]:
-        if i["ShowDetailLink"]:
+    
+    # Handle null/empty CustomDuty response
+    custom_duties = json_data.get('CustomDuty') or []
+    if not custom_duties:
+        logger.warning(f"No custom duty data found for {country1} -> {country2}, HS: {hsc}")
+    else:
+        logger.info(f"Found {len(custom_duties)} custom duty items")
+    
+    for i in custom_duties:
+        if i.get("ShowDetailLink"):
             logger.info("Processing custom duty with detail link")
             custom_tariff_data.append(ProcessTradeAgreement(i, c1_id, c2_id, year, hsc))
         else:
@@ -234,8 +287,8 @@ def ScrapeMacmapTariff(country1, country2, year, hsc):
 
 def ScrapeMacmapTradeRemedies(country1, country2, year, hs):
     logger.info(f"Scraping Macmap trade remedies for countries: {country1}, {country2}, year: {year}, HS code: {hs}")
-    c1_id = countries[country1]
-    c2_id = countries[country2]
+    c1_id = get_country_code(country1)
+    c2_id = get_country_code(country2)
     req1 = SendGetRequests(
         f"https://www.macmap.org/api/tr-products?remedytype=All&reporterCode={c1_id}&level=8&year={year}&partnerCode={c2_id}&productCode={hs}",
         headers,
@@ -281,8 +334,8 @@ def ScrapeMacmapTradeRemedies(country1, country2, year, hs):
 
 def ScrapeMacmapRegulatoryRequirements(country1, country2, hsc, regtype):
     logger.info(f"Scraping Macmap regulatory requirements for countries: {country1}, {country2}, HS code: {hsc}, regtype: {regtype}")
-    c1_id = countries[country1]
-    c2_id = countries[country2]
+    c1_id = get_country_code(country1)
+    c2_id = get_country_code(country2)
     
     # Check if HS code is 6-digit and expand to 8-digit codes
     hsc_codes_to_scrape = []
@@ -474,7 +527,7 @@ def ScrapeMacmapCompareMarket(country, hsc):
 
 def ScrapeMacmapCompetitors(country, hsc):
     logger.info(f"Scraping Macmap competitors for country: {country}, HS code: {hsc}")
-    c1_id = countries[country]
+    c1_id = get_country_code(country)
     try:
         item = hscodes_full[hsc]
     except:
@@ -512,8 +565,8 @@ def ScrapeMacmapCompetitors(country, hsc):
 
 def ScrapeMacmapProducts(country1, country2, hsc_lvl):
     logger.info(f"Scraping Macmap products for countries: {country1}, {country2}, HS level: {hsc_lvl}")
-    c1_id = countries[country1]
-    c2_id = countries[country2]
+    c1_id = get_country_code(country1)
+    c2_id = get_country_code(country2)
     req = SendGetRequests(
         f"https://www.macmap.org/api/results/productview?reporter={c1_id}&partner={c2_id}&product=All&level={hsc_lvl}",
         headers,
@@ -596,7 +649,7 @@ def SCTariff(row):
 def ScrapeTarrifFull(country):
     logger.info(f"Scraping full tariff for country: {country}")
     try:
-        c1_id = countries[country]
+        c1_id = get_country_code(country)
         req = SendGetRequests(
             f"https://www.macmap.org/api/getyears?datatype=Tariff&reporters={c1_id}",
             headers,
@@ -621,9 +674,10 @@ def ScrapeTarrifFull(country):
                     use_proxy=True,
                     use_webshare=True
                 )
-                if len(req.json()) > 0:
+                json_response = req.json() if req else []
+                if json_response and len(json_response) > 0:
                     # Get all HS codes for this year (no filtering)
-                    for i in req.json():
+                    for i in json_response:
                         print(i['Code'], "processing")
                         hs = [i['Code'], i["Name"]]
                         x = [hs, year, c1_id, country]

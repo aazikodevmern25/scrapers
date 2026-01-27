@@ -35,6 +35,7 @@ from celery_app.tasks import (
     trademap_scraper_task,
     eximpedia_scraper_task,
     eximpedia_batch_scraper_task,
+    eximpedia_mirror_data_task,
     port_scraper_start_fresh_task,
     port_scraper_resume_task,
     port_scraper_update_existing_task,
@@ -200,14 +201,26 @@ class IndianTradePortalRequest(BaseModel):
     hscode: str = Field(..., description="HS code to scrape")
 
 class TradeMapRequest(BaseModel):
-    hscode: str = Field(..., description="HS code")
-    country1: str = Field(..., description="First country")
-    country2: str = Field(..., description="Second country")
+    hscode: str = Field(..., description="HS code (or 'all' for all products)")
+    country1: str = Field(..., description="Exporting country (or 'all')")
+    country2: str = Field(..., description="Importing country (or 'all')")
+    time_series: str = Field('yearly', description="Time series type: yearly, quarterly, monthly, trade_indicators")
+    view_type: str = Field('by_country', description="View type: by_country, by_product, by_service")
+    value_type: str = Field('values', description="Value type: values, quantities, growth_value, etc.")
+    all_hs_codes: bool = Field(False, description="Scrape all HS codes")
+    all_exporting: bool = Field(False, description="Scrape all exporting countries")
+    all_importing: bool = Field(False, description="Scrape all importing countries")
 
 class TradeMapBulkRequest(BaseModel):
-    hscodes: List[str] = Field(..., description="List of HS codes")
-    exporting_countries: List[str] = Field(..., description="List of exporting countries")
-    importing_countries: List[str] = Field(..., description="List of importing countries")
+    hscodes: List[str] = Field(..., description="List of HS codes (or ['all'] for all products)")
+    exporting_countries: List[str] = Field(..., description="List of exporting countries (or ['all'])")
+    importing_countries: List[str] = Field(..., description="List of importing countries (or ['all'])")
+    time_series_types: List[str] = Field(['yearly', 'quarterly', 'monthly'], description="Time series types to scrape")
+    view_types: List[str] = Field(['by_country', 'by_product'], description="View types to scrape")
+    values_types: List[str] = Field(['values'], description="Value types to scrape")
+    all_hs_codes: bool = Field(False, description="Scrape all HS codes")
+    all_exporting: bool = Field(False, description="Scrape all exporting countries")
+    all_importing: bool = Field(False, description="Scrape all importing countries")
 
 class EximpediaRequest(BaseModel):
     start_date: str = Field(..., description="Start date in MM/DD/YYYY format")
@@ -225,6 +238,18 @@ class EximpediaBatchItem(BaseModel):
 
 class EximpediaBatchRequest(BaseModel):
     batch_data: List[EximpediaBatchItem] = Field(..., description="List of Eximpedia scraping requests")
+
+class EximpediaMirrorDataRequest(BaseModel):
+    search_type: str = Field(..., description="Search type: HS_CODE, PRODUCT_DESCRIPTION_EN, CONSIGNEE_NAME_EN, etc.")
+    search_value: str = Field(..., description="Value to search for")
+    start_date: str = Field(..., description="Start date in MM/DD/YYYY format")
+    end_date: str = Field(..., description="End date in MM/DD/YYYY format")
+    countries: List[str] = Field(..., description="List of countries to search")
+    match_type: str = Field('EXACT', description="Match type: EXACT or CONTAINS")
+    email: Optional[str] = Field(None, description="Eximpedia login email")
+    password: Optional[str] = Field(None, description="Eximpedia login password")
+    download_excel: bool = Field(True, description="Download Excel report")
+    max_records: int = Field(1000, description="Maximum records to fetch (default 1000)")
 
 class PortScraperStartFreshRequest(BaseModel):
     headless: bool = Field(True, description="Run browser in headless mode")
@@ -305,6 +330,7 @@ async def api_info():
             "trademap": "/api/v1/scrape/trademap",
             "eximpedia": "/api/v1/scrape/eximpedia",
             "eximpedia-batch": "/api/v1/scrape/eximpedia-batch",
+            "eximpedia-mirror-data": "/api/v1/scrape/eximpedia-mirror-data",
             "status": "/api/v1/task/{task_id}",
             "health": "/health",
             "payload": "/payload"
@@ -318,6 +344,15 @@ async def trademap_form(request: Request):
 @app.get("/eximpedia-form")
 async def eximpedia_form(request: Request):
     return templates.TemplateResponse("eximpedia_form.html", {"request": request})
+
+@app.get("/eximpedia-mirror-data-form")
+async def eximpedia_mirror_data_form(request: Request):
+    return templates.TemplateResponse("eximpedia_mirror_data_form.html", {"request": request})
+
+@app.get("/macmap-form")
+async def macmap_form(request: Request):
+    from fastapi.responses import FileResponse
+    return FileResponse("static/macmap_tariff_form.html")
 
 @app.get("/trade-agreements-form")
 async def trade_agreements_form(request: Request):
@@ -703,12 +738,57 @@ async def scrape_indian_trade_portal_api(request: IndianTradePortalRequest):
 @app.post("/api/v1/scrape/trademap", response_model=TaskResponse)
 async def scrape_trademap_api(request: TradeMapRequest):
     try:
-        task = trademap_scraper_task.delay(request.hscode, request.country1, request.country2)
-        logger.info(f"Queued TradeMap task: {task.id}")
+        # Load all countries for expansion if needed
+        all_countries_list = []
+        if request.all_exporting or request.all_importing or request.country1.lower() == 'all' or request.country2.lower() == 'all':
+            try:
+                import json
+                from pathlib import Path
+                countries_file = Path(__file__).parent.parent / "static" / "countries.json"
+                if countries_file.exists():
+                    with open(countries_file, 'r', encoding='utf-8') as f:
+                        countries_data = json.load(f)
+                        all_countries_list = [c['Name'] for c in countries_data if c.get('Name')]
+                    logger.info(f"Loaded {len(all_countries_list)} countries for expansion")
+            except Exception as e:
+                logger.warning(f"Failed to load countries for expansion: {e}")
+        
+        # Expand countries if needed
+        country1_list = [request.country1]
+        country2_list = [request.country2]
+        
+        if (request.all_exporting or request.country1.lower() == 'all') and all_countries_list:
+            country1_list = all_countries_list
+            logger.info(f"Expanded country1 to {len(country1_list)} countries")
+        
+        if (request.all_importing or request.country2.lower() == 'all') and all_countries_list:
+            country2_list = all_countries_list
+            logger.info(f"Expanded country2 to {len(country2_list)} countries")
+        
+        # Create tasks for all combinations
+        task_ids = []
+        for c1 in country1_list:
+            for c2 in country2_list:
+                task = trademap_scraper_task.delay(
+                    request.hscode, 
+                    c1, 
+                    c2,
+                    time_series_list=[request.time_series],
+                    view_type_list=[request.view_type],
+                    value_type_list=[request.value_type],
+                    all_hs_codes=request.all_hs_codes,
+                    all_exporting=False,  # Set to False since we expanded
+                    all_importing=False   # Set to False since we expanded
+                )
+                task_ids.append(task.id)
+        
+        total_tasks = len(task_ids)
+        logger.info(f"Queued {total_tasks} TradeMap task(s)")
+        
         return TaskResponse(
-            task_id=task.id,
+            task_id=task_ids[0] if task_ids else "",
             status="queued",
-            message=f"TradeMap scraping task queued for HS code: {request.hscode} ({request.country1} -> {request.country2})"
+            message=f"Queued {total_tasks} TradeMap scraping task(s) for HS code: {request.hscode}"
         )
     except Exception as e:
         logger.error(f"Error queueing TradeMap task: {str(e)}")
@@ -746,21 +826,28 @@ async def scrape_trademap_bulk_api(request: TradeMapBulkRequest):
             logger.info(f"TradeMap workers already running ({workers_running} workers)")
         
         task_ids = []
+        # Calculate tasks: only HS × exporting × importing (options passed as lists)
         total_tasks = len(request.hscodes) * len(request.exporting_countries) * len(request.importing_countries)
         
-        logger.info(f"Creating {total_tasks} TradeMap bulk tasks")
+        logger.info(f"Creating {total_tasks} TradeMap bulk tasks (each will scrape {len(request.time_series_types)}×{len(request.view_types)}×{len(request.values_types)} combinations)")
         
-        # Create all combinations of HS codes × exporting countries × importing countries
+        # Create ONE task per HS code × country pair, passing option lists
         for hscode in request.hscodes:
             for exporting_country in request.exporting_countries:
                 for importing_country in request.importing_countries:
                     task = trademap_scraper_task.delay(
                         hscode.strip(),
                         exporting_country.strip(),
-                        importing_country.strip()
+                        importing_country.strip(),
+                        time_series_list=request.time_series_types,
+                        view_type_list=request.view_types,
+                        value_type_list=request.values_types,
+                        all_hs_codes=request.all_hs_codes,
+                        all_exporting=request.all_exporting,
+                        all_importing=request.all_importing
                     )
                     task_ids.append(task.id)
-                    logger.info(f"Queued TradeMap bulk task {len(task_ids)}/{total_tasks}: {task.id} - HS:{hscode} ({exporting_country} -> {importing_country})")
+                    logger.info(f"Queued task {len(task_ids)}/{total_tasks}: {task.id} - HS:{hscode} ({exporting_country} -> {importing_country}) with {len(request.time_series_types)}×{len(request.view_types)}×{len(request.values_types)} options")
         
         return {
             "status": "success",
@@ -814,6 +901,49 @@ async def scrape_eximpedia_batch_api(request: EximpediaBatchRequest):
         )
     except Exception as e:
         logger.error(f"Error queueing Eximpedia batch task: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/scrape/eximpedia-mirror-data", response_model=TaskResponse)
+async def scrape_eximpedia_mirror_data_api(request: EximpediaMirrorDataRequest):
+    """
+    Scrape Eximpedia Mirror Data.
+    
+    Mirror Data allows searching global trade records by various fields:
+    - HS_CODE
+    - PRODUCT_DESCRIPTION_EN
+    - CONSIGNEE_NAME_EN
+    - SHIPPER_NAME_EN
+    - PRODUCT_DESCRIPTION_NATIVE
+    - HS_CODE_DESCRIPTION
+    - CONSIGNEE_CODE
+    - CONSIGNEE_NAME_NATIVE
+    - SHIPPER_CODE
+    - SHIPPER_NAME_NATIVE
+    
+    Results are saved to MongoDB (eximpedia_mirror_data collection) and optionally
+    exported to Excel in the eximpedia_sheets folder.
+    """
+    try:
+        task = eximpedia_mirror_data_task.delay(
+            search_type=request.search_type,
+            search_value=request.search_value,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            countries=request.countries,
+            match_type=request.match_type,
+            email=request.email,
+            password=request.password,
+            download_excel=request.download_excel,
+            max_records=request.max_records
+        )
+        logger.info(f"Queued Eximpedia Mirror Data task: {task.id}")
+        return TaskResponse(
+            task_id=task.id,
+            status="queued",
+            message=f"Eximpedia Mirror Data task queued - {request.search_type}={request.search_value} for {len(request.countries)} countries"
+        )
+    except Exception as e:
+        logger.error(f"Error queueing Eximpedia Mirror Data task: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/v1/scrape/ports/start-fresh", response_model=TaskResponse)
@@ -2656,6 +2786,46 @@ async def generate_payload(request: PayloadGenerationRequest):
         result = payload_service.generate_payload(request.payload_type, request.config)
         
         if result["success"]:
+            # Auto-trigger workers in background after task creation
+            import threading
+            import time
+            def trigger_workers():
+                try:
+                    # Wait 3 seconds for tasks to be fully saved to MongoDB
+                    time.sleep(3)
+                    
+                    import requests
+                    scraper_map = {
+                        'eximpedia': 'eximpedia',
+                        'macmaptariff': 'MacMapTariff',
+                        'trademap': 'trademap'
+                    }
+                    scraper_id = scraper_map.get(request.payload_type.lower(), request.payload_type)
+                    
+                    logger.info(f"🚀 Auto-triggering workers for {scraper_id}...")
+                    
+                    response = requests.post(
+                        'http://localhost:1080/api/v1/tasks/create',
+                        json={'scraper_id': scraper_id},
+                        timeout=10  # Increased timeout
+                    )
+                    
+                    if response.status_code == 200:
+                        logger.info(f"✅ Auto-triggered workers for {scraper_id} successfully")
+                    else:
+                        logger.error(f"❌ Auto-trigger failed with status {response.status_code}")
+                except requests.exceptions.Timeout:
+                    logger.warning(f"⚠️ Auto-trigger timeout (workers still starting in background)")
+                except Exception as e:
+                    logger.error(f"❌ Failed to auto-trigger workers: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+            
+            # Start workers in background so response is fast
+            worker_thread = threading.Thread(target=trigger_workers, daemon=True)
+            worker_thread.start()
+            logger.info(f"📋 Payload created: {result.get('tasksCreated', 0)} tasks - auto-trigger scheduled")
+            
             return {
                 "success": True,
                 "message": "Payload generation completed",
@@ -2692,10 +2862,10 @@ async def create_tasks_from_payloads(request: Dict[str, Any] = Body(...)):
         db = get_database()
         collection = db["scraper_tasks"]
         
-        # Find pending tasks for this scraper
+        # Find pending tasks for this scraper (case-insensitive)
         pending_tasks = list(collection.find({
-            "scraper": scraper_id,
-            "status": "pending"
+            'scraper': {'$regex': f'^{scraper_id}$', '$options': 'i'},
+            'status': 'pending'
         }).limit(100))
         
         if not pending_tasks:
@@ -2711,26 +2881,245 @@ async def create_tasks_from_payloads(request: Dict[str, Any] = Body(...)):
         
         if scraper_id == "eximpedia":
             from celery_app.tasks import eximpedia_scraper_task
+            import threading
+            from concurrent.futures import ThreadPoolExecutor
             
-            for task in pending_tasks:
-                payload = task.get('payload', {})
-                
-                # Queue to Celery
-                celery_task = eximpedia_scraper_task.delay(
-                    start_date=payload.get('start_date'),
-                    end_date=payload.get('end_date'),
-                    hscode=payload.get('hscode'),
-                    country=payload.get('country'),
-                    mode=payload.get('mode')
-                )
-                
-                # Update MongoDB task status
-                collection.update_one(
-                    {'_id': task['_id']},
-                    {'$set': {'status': 'processing', 'task_id': celery_task.id}}
-                )
-                
-                queued_count += 1
+            def process_eximpedia_task(task_data):
+                """Process Eximpedia task in background thread"""
+                try:
+                    payload = task_data.get('payload', {})
+                    task_id = task_data.get('_id')
+                    
+                    # Atomic update to processing - only if still pending (prevents duplicate execution)
+                    update_result = collection.update_one(
+                        {'_id': task_id, 'status': 'pending'},
+                        {'$set': {'status': 'processing'}}
+                    )
+                    
+                    # If no document was modified, another worker already picked this up
+                    if update_result.modified_count == 0:
+                        logger.info(f"⏭️  Task {task_id} already being processed by another worker, skipping")
+                        return False
+                    
+                    # Execute directly with correct parameters (including credentials)
+                    result = eximpedia_scraper_task(
+                        start_date=payload.get('start_date'),
+                        end_date=payload.get('end_date'),
+                        hscode=payload.get('hscode'),
+                        country=payload.get('country'),
+                        mode=payload.get('mode'),
+                        email=payload.get('email'),
+                        password=payload.get('password')
+                    )
+                    
+                    # Check if scraper actually succeeded (handle both string and dict returns)
+                    success = False
+                    if result == "Success":
+                        success = True
+                    elif isinstance(result, dict) and result.get('status') == 'success':
+                        success = True
+                    elif isinstance(result, dict) and result.get('result') == 'Success':
+                        success = True
+                    
+                    if success:
+                        collection.update_one(
+                            {'_id': task_id},
+                            {'$set': {'status': 'completed'}}
+                        )
+                        logger.info(f"✅ Task {task_id} completed successfully")
+                        return True
+                    else:
+                        # Scraper failed - mark as failed with error message
+                        collection.update_one(
+                            {'_id': task_id},
+                            {'$set': {'status': 'failed', 'error': str(result)}}
+                        )
+                        logger.error(f"❌ Task {task_id} failed: {result}")
+                        return False
+                except Exception as e:
+                    logger.error(f"Eximpedia task processing error: {e}")
+                    collection.update_one(
+                        {'_id': task_data.get('_id')},
+                        {'$set': {'status': 'failed', 'error': str(e)}}
+                    )
+                    return False
+            
+            # Process tasks SEQUENTIALLY with delays to avoid Cloudflare blocking
+            def run_sequential_workers():
+                import time
+                for i, task in enumerate(pending_tasks):
+                    logger.info(f"Processing Eximpedia task {i+1}/{len(pending_tasks)}")
+                    process_eximpedia_task(task)
+                    
+                    # Add delay between tasks to avoid rate limiting (except for last task)
+                    if i < len(pending_tasks) - 1:
+                        delay = 10  # 10 seconds between tasks
+                        logger.info(f"Waiting {delay}s before next task to avoid rate limiting...")
+                        time.sleep(delay)
+            
+            # Start workers in background thread so API doesn't block
+            worker_thread = threading.Thread(target=run_sequential_workers, daemon=True)
+            worker_thread.start()
+            queued_count = len(pending_tasks)
+        
+        elif scraper_id.lower() in ["macmap_tariff", "macmaptariff"]:
+            from celery_app.tasks import scrape_macmap_tariff
+            import threading
+            from concurrent.futures import ThreadPoolExecutor
+            
+            def process_macmap_task(task_data):
+                """Process MacMap task in background thread"""
+                try:
+                    payload = task_data.get('payload', {})
+                    task_id = task_data.get('_id')
+                    
+                    # Update to processing
+                    collection.update_one(
+                        {'_id': task_id},
+                        {'$set': {'status': 'processing'}}
+                    )
+                    
+                    # Execute directly with correct parameters
+                    result = scrape_macmap_tariff(
+                        country1=payload.get('country1'),
+                        country2=payload.get('country2'),
+                        year=payload.get('year'),
+                        hsc=payload.get('hsc')
+                    )
+                    
+                    # Check if scraper actually succeeded
+                    if result and isinstance(result, dict) and result.get('status') == 'success':
+                        collection.update_one(
+                            {'_id': task_id},
+                            {'$set': {'status': 'completed'}}
+                        )
+                        logger.info(f"✅ MacMap task {task_id} completed successfully")
+                        return True
+                    else:
+                        # Scraper failed - mark as failed with error
+                        error_msg = str(result) if result else 'No result returned'
+                        collection.update_one(
+                            {'_id': task_id},
+                            {'$set': {'status': 'failed', 'error': error_msg}}
+                        )
+                        logger.error(f"❌ MacMap task {task_id} failed: {error_msg}")
+                        return False
+                except Exception as e:
+                    logger.error(f"MacMap task processing error: {e}")
+                    collection.update_one(
+                        {'_id': task_data.get('_id')},
+                        {'$set': {'status': 'failed', 'error': str(e)}}
+                    )
+                    return False
+            
+            # Process with 12 parallel workers CONTINUOUSLY in background
+            def run_parallel_workers_continuous():
+                import time
+                while True:
+                    # Fetch pending tasks
+                    pending = list(collection.find({'scraper': 'MacMapTariff', 'status': 'pending'}).limit(100))
+                    if not pending:
+                        logger.info("MacMap: No more pending tasks, stopping workers")
+                        break
+                    
+                    logger.info(f"MacMap: Processing batch of {len(pending)} tasks with 12 workers")
+                    with ThreadPoolExecutor(max_workers=12) as executor:
+                        futures = [executor.submit(process_macmap_task, task) for task in pending]
+                        # Wait for all to complete before fetching next batch
+                        for future in futures:
+                            try:
+                                future.result()
+                            except Exception as e:
+                                logger.error(f"MacMap worker error: {e}")
+                    
+                    time.sleep(1)  # Small delay between batches
+            
+            # Start continuous workers in background thread
+            worker_thread = threading.Thread(target=run_parallel_workers_continuous, daemon=True)
+            worker_thread.start()
+            queued_count = len(pending_tasks)
+        
+        elif scraper_id.lower() == "trademap":
+            from celery_app.tasks import trademap_scraper_task
+            import threading
+            from concurrent.futures import ThreadPoolExecutor
+            
+            def process_trademap_task(task_data):
+                """Process TradeMap task in background thread"""
+                try:
+                    payload = task_data.get('payload', {})
+                    task_id = task_data.get('_id')
+                    
+                    # Update to processing
+                    collection.update_one(
+                        {'_id': task_id},
+                        {'$set': {'status': 'processing'}}
+                    )
+                    
+                    # Execute directly with correct parameters including new options
+                    result = trademap_scraper_task(
+                        hscode=payload.get('hscode'),
+                        country1=payload.get('country1'),
+                        country2=payload.get('country2'),
+                        time_series_list=payload.get('time_series_list', ['yearly']),
+                        view_type_list=payload.get('view_type_list', ['by_country']),
+                        value_type_list=payload.get('value_type_list', ['values']),
+                        all_hs_codes=payload.get('all_hs_codes', False),
+                        all_exporting=payload.get('all_exporting', False),
+                        all_importing=payload.get('all_importing', False)
+                    )
+                    
+                    # Check if scraper actually succeeded
+                    if result and isinstance(result, dict) and result.get('status') == 'success':
+                        collection.update_one(
+                            {'_id': task_id},
+                            {'$set': {'status': 'completed'}}
+                        )
+                        logger.info(f"✅ TradeMap task {task_id} completed successfully")
+                        return True
+                    else:
+                        # Scraper failed - mark as failed with error
+                        error_msg = str(result) if result else 'No result returned'
+                        collection.update_one(
+                            {'_id': task_id},
+                            {'$set': {'status': 'failed', 'error': error_msg}}
+                        )
+                        logger.error(f"❌ TradeMap task {task_id} failed: {error_msg}")
+                        return False
+                except Exception as e:
+                    logger.error(f"TradeMap task processing error: {e}")
+                    collection.update_one(
+                        {'_id': task_data.get('_id')},
+                        {'$set': {'status': 'failed', 'error': str(e)}}
+                    )
+                    return False
+            
+            # Process with 10 parallel workers CONTINUOUSLY in background
+            def run_parallel_workers_continuous():
+                import time
+                while True:
+                    # Fetch pending tasks
+                    pending = list(collection.find({'scraper': 'trademap', 'status': 'pending'}).limit(100))
+                    if not pending:
+                        logger.info("TradeMap: No more pending tasks, stopping workers")
+                        break
+                    
+                    logger.info(f"TradeMap: Processing batch of {len(pending)} tasks with 10 workers")
+                    with ThreadPoolExecutor(max_workers=10) as executor:
+                        futures = [executor.submit(process_trademap_task, task) for task in pending]
+                        # Wait for all to complete before fetching next batch
+                        for future in futures:
+                            try:
+                                future.result()
+                            except Exception as e:
+                                logger.error(f"TradeMap worker error: {e}")
+                    
+                    time.sleep(1)  # Small delay between batches
+            
+            # Start continuous workers in background thread
+            worker_thread = threading.Thread(target=run_parallel_workers_continuous, daemon=True)
+            worker_thread.start()
+            queued_count = len(pending_tasks)
         
         return {
             "success": True,
@@ -4050,9 +4439,9 @@ async def get_data_sources_status():
                     try:
                         from pymongo import MongoClient
                         
-                        # MongoDB connection
-                        MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
-                        MONGO_DB = os.getenv('MONGO_DB', 'jaimish_data')
+                        # MongoDB connection - using actual server
+                        MONGO_URI = os.getenv('MONGO_URI', 'mongodb://202.47.115.6:27017/')
+                        MONGO_DB = os.getenv('MONGO_DB', 'Dhruval')
                         
                         client = MongoClient(MONGO_URI)
                         db = client[MONGO_DB]
@@ -4290,9 +4679,9 @@ async def get_data_source_data(source_id: str, limit: int = 100, offset: int = 0
         try:
             from pymongo import MongoClient
             
-            # MongoDB connection - adjust these settings according to your setup
-            MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
-            MONGO_DB = os.getenv('MONGO_DB', 'jaimish_data')
+            # MongoDB connection - using actual server
+            MONGO_URI = os.getenv('MONGO_URI', 'mongodb://202.47.115.6:27017/')
+            MONGO_DB = os.getenv('MONGO_DB', 'Dhruval')
             
             client = MongoClient(MONGO_URI)
             db = client[MONGO_DB]

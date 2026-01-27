@@ -1,0 +1,138 @@
+2026-01-16 04:40:05,427 - scrapers.trademap.trademap - INFO - Loaded 1000 proxies from config/proxies.txt
+2026-01-16 04:40:05,427 - scrapers.trademap.trademap - INFO - Successfully loaded all payload files
+2026-01-16 04:40:05,432 - eximpedia_scraper - INFO - Loading configuration files
+2026-01-16 04:40:05,434 - eximpedia_scraper - INFO - Successfully loaded configuration files - Import countries: 45, Export countries: 39
+2026-01-16 04:40:05,455 - port_scraper - INFO - Port Scraper using database: ports_database
+2026-01-16 04:40:05,540 - port_scraper - WARNING - Some indexes may already exist: Index build failed: f7dc0400-150a-4316-9936-d73a4f73a9e2: Collection ports_database.ports ( 33c8a43a-fe14-4959-83e1-6f5ae4d8a394 ) :: caused by :: E11000 duplicate key error collection: ports_database.ports index: country_code_1_code_1 dup key: { country_code: "AL", code: null }, full error: {'ok': 0.0, 'errmsg': 'Index build failed: f7dc0400-150a-4316-9936-d73a4f73a9e2: Collection ports_database.ports ( 33c8a43a-fe14-4959-83e1-6f5ae4d8a394 ) :: caused by :: E11000 duplicate key error collection: ports_database.ports index: country_code_1_code_1 dup key: { country_code: "AL", code: null }', 'code': 11000, 'codeName': 'DuplicateKey', 'keyPattern': {'country_code': 1, 'code': 1}, 'keyValue': {'country_code': 'AL', 'code': None}}
+2026-01-16 04:40:06,076 - state_synchronizer - INFO - State synchronizer initialized
+ 
+ -------------- celery@aaziko v5.5.3 (immunity)
+--- ***** ----- 
+-- ******* ---- Linux-5.15.0-153-generic-x86_64-with-glibc2.35 2026-01-16 04:40:08
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         macmap_scraper:0x7f6dbd9796d0
+- ** ---------- .> transport:   redis://localhost:6379/0
+- ** ---------- .> results:     redis://localhost:6379/0
+- *** --- * --- .> concurrency: 10 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> trademap         exchange=trademap(direct) key=trademap
+                
+
+[tasks]
+  . celery_app.tasks.batch_scrape_tariffs
+  . celery_app.tasks.comprehensive_country_analysis
+  . celery_app.tasks.eximpedia_batch_scraper_task
+  . celery_app.tasks.eximpedia_scraper_task
+  . celery_app.tasks.indiamart_category_crawler_task
+  . celery_app.tasks.indiamart_product_scraper_legacy_task
+  . celery_app.tasks.indiamart_product_scraper_task
+  . celery_app.tasks.port_scraper_get_statistics_task
+  . celery_app.tasks.port_scraper_resume_task
+  . celery_app.tasks.port_scraper_start_fresh_task
+  . celery_app.tasks.port_scraper_update_existing_task
+  . celery_app.tasks.scrape_indian_trade_portal
+  . celery_app.tasks.scrape_macmap_compare_market
+  . celery_app.tasks.scrape_macmap_competitors
+  . celery_app.tasks.scrape_macmap_products
+  . celery_app.tasks.scrape_macmap_regulatory_requirements
+  . celery_app.tasks.scrape_macmap_tariff
+  . celery_app.tasks.scrape_macmap_trade_remedies
+  . celery_app.tasks.scrape_tariff_full
+  . celery_app.tasks.scrape_trade_agreements
+  . celery_app.tasks.trademap_scraper_task
+
+
+worker: Warm shutdown (MainProcess)
+2026-01-16 05:05:31,365 - scrapers.trademap.trademap - INFO - Loaded 1000 proxies from config/proxies.txt
+2026-01-16 05:05:31,365 - scrapers.trademap.trademap - INFO - Successfully loaded all payload files
+2026-01-16 05:05:31,367 - eximpedia_scraper - INFO - Loading configuration files
+2026-01-16 05:05:31,368 - eximpedia_scraper - INFO - Successfully loaded configuration files - Import countries: 45, Export countries: 39
+2026-01-16 05:05:31,381 - port_scraper - INFO - Port Scraper using database: ports_database
+2026-01-16 05:05:31,457 - port_scraper - WARNING - Some indexes may already exist: Index build failed: 81ccdb24-84ff-4ab4-a1be-367571f0b3cd: Collection ports_database.ports ( 33c8a43a-fe14-4959-83e1-6f5ae4d8a394 ) :: caused by :: E11000 duplicate key error collection: ports_database.ports index: country_code_1_code_1 dup key: { country_code: "AL", code: null }, full error: {'ok': 0.0, 'errmsg': 'Index build failed: 81ccdb24-84ff-4ab4-a1be-367571f0b3cd: Collection ports_database.ports ( 33c8a43a-fe14-4959-83e1-6f5ae4d8a394 ) :: caused by :: E11000 duplicate key error collection: ports_database.ports index: country_code_1_code_1 dup key: { country_code: "AL", code: null }', 'code': 11000, 'codeName': 'DuplicateKey', 'keyPattern': {'country_code': 1, 'code': 1}, 'keyValue': {'country_code': 'AL', 'code': None}}
+2026-01-16 05:05:32,044 - state_synchronizer - INFO - State synchronizer initialized
+ 
+ -------------- celery@aaziko v5.5.3 (immunity)
+--- ***** ----- 
+-- ******* ---- Linux-5.15.0-153-generic-x86_64-with-glibc2.35 2026-01-16 05:05:32
+- *** --- * --- 
+- ** ---------- [config]
+- ** ---------- .> app:         macmap_scraper:0x7f0849201b10
+- ** ---------- .> transport:   redis://localhost:6379/0
+- ** ---------- .> results:     redis://localhost:6379/0
+- *** --- * --- .> concurrency: 10 (prefork)
+-- ******* ---- .> task events: OFF (enable -E to monitor tasks in this worker)
+--- ***** ----- 
+ -------------- [queues]
+                .> trademap         exchange=trademap(direct) key=trademap
+                
+
+[tasks]
+  . celery_app.tasks.batch_scrape_tariffs
+  . celery_app.tasks.comprehensive_country_analysis
+  . celery_app.tasks.eximpedia_batch_scraper_task
+  . celery_app.tasks.eximpedia_scraper_task
+  . celery_app.tasks.indiamart_category_crawler_task
+  . celery_app.tasks.indiamart_product_scraper_legacy_task
+  . celery_app.tasks.indiamart_product_scraper_task
+  . celery_app.tasks.port_scraper_get_statistics_task
+  . celery_app.tasks.port_scraper_resume_task
+  . celery_app.tasks.port_scraper_start_fresh_task
+  . celery_app.tasks.port_scraper_update_existing_task
+  . celery_app.tasks.scrape_indian_trade_portal
+  . celery_app.tasks.scrape_macmap_compare_market
+  . celery_app.tasks.scrape_macmap_competitors
+  . celery_app.tasks.scrape_macmap_products
+  . celery_app.tasks.scrape_macmap_regulatory_requirements
+  . celery_app.tasks.scrape_macmap_tariff
+  . celery_app.tasks.scrape_macmap_trade_remedies
+  . celery_app.tasks.scrape_tariff_full
+  . celery_app.tasks.scrape_trade_agreements
+  . celery_app.tasks.trademap_scraper_task
+
+
+worker: Warm shutdown (MainProcess)
+Usage: celery [OPTIONS] COMMAND [ARGS]...
+Try 'celery --help' for help.
+
+Error: 
+Unable to load celery application.
+While trying to load the module celery_app.tasks the following error occurred:
+Traceback (most recent call last):
+  File "/home/aaziko/.local/lib/python3.11/site-packages/celery/app/utils.py", line 383, in find_app
+    sym = symbol_by_name(app, imp=imp)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/aaziko/.local/lib/python3.11/site-packages/kombu/utils/imports.py", line 64, in symbol_by_name
+    return getattr(module, cls_name) if cls_name else module
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'celery_app' has no attribute 'tasks'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/aaziko/.local/lib/python3.11/site-packages/celery/bin/celery.py", line 141, in celery
+    app = find_app(app)
+          ^^^^^^^^^^^^^
+  File "/home/aaziko/.local/lib/python3.11/site-packages/celery/app/utils.py", line 386, in find_app
+    sym = imp(app)
+          ^^^^^^^^
+  File "/home/aaziko/.local/lib/python3.11/site-packages/celery/utils/imports.py", line 109, in import_from_cwd
+    return imp(module, package=package)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/importlib/__init__.py", line 126, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1204, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1147, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 690, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 936, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 1074, in get_code
+  File "<frozen importlib._bootstrap_external>", line 1004, in source_to_code
+  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+  File "/home/aaziko/scrapers/celery_app/tasks.py", line 337
+    view_type=view_type,
+IndentationError: unexpected indent
+

@@ -42,8 +42,6 @@ product_urls_clean.csv
 *.pid
 
 # Browser profiles and temp directories
-trademap/
-trademap_*/
 chrome_debug.log
 
 # Environment and credentials

@@ -43,10 +43,10 @@ class PayloadService:
                 "fields": ["countries", "hscodes"]
             },
             "eximpedia": {
-                "script": "eximpedia/eximPediaPayloadCreator.py", 
+                "script": "eximpedia/eximPediaPayloadCreator.py",
                 "name": "Eximpedia",
-                "description": "Create payloads for Eximpedia data scraping",
-                "fields": ["countries", "hscodes", "mode", "start_date", "end_date"]
+                "description": "Generate Eximpedia trade data payloads",
+                "fields": ["hscode", "country", "mode", "start_date", "end_date"]
             },
             "fulltariff": {
                 "script": "macmap/fulltariff/fulltariffPayloadCreator.py",
@@ -76,7 +76,7 @@ class PayloadService:
                 "script": "macmap/tariff/macmapTariffPayloadCreator.py",
                 "name": "MacMap Tariff",
                 "description": "Generate MacMap tariff analysis payloads",
-                "fields": ["countries", "hscodes"]
+                "fields": ["country1", "country2", "hscodes", "year"]
             },
             "traderemedies": {
                 "script": "macmap/traderemedies/tradeRemediesPayloadCreator.py",
@@ -88,7 +88,7 @@ class PayloadService:
                 "script": "trademap/tradeMapPayloadCreator.py",
                 "name": "TradeMap",
                 "description": "Create TradeMap data scraping payloads",
-                "fields": ["countries", "hscodes"]
+                "fields": ["country1", "country2", "hscodes"]
             }
         }
         
@@ -100,27 +100,67 @@ class PayloadService:
         """Normalize frontend config to backend expected format"""
         normalized = config.copy()
         
-        # Convert hsCodes (array from frontend) to hscode/hscodes/hsc (string for backend)
+        # Convert hsCodes OR hscodes (array from frontend) to hscode/hscodes/hsc (string for backend)
+        # Handle both camelCase (hsCodes) and lowercase (hscodes) from form
+        hs_codes_key = None
         if 'hsCodes' in normalized:
-            hs_codes = normalized['hsCodes']
+            hs_codes_key = 'hsCodes'
+        elif 'hscodes' in normalized:
+            hs_codes_key = 'hscodes'
+        
+        if hs_codes_key:
+            hs_codes = normalized[hs_codes_key]
             if isinstance(hs_codes, list):
                 hs_codes_str = ','.join(hs_codes)
             else:
                 hs_codes_str = str(hs_codes)
             
             # Different scrapers expect different field names
-            if payload_type == "indiantradeportal":
+            if payload_type in ["indiantradeportal", "eximpedia"]:
                 normalized['hscode'] = hs_codes_str
             elif payload_type == "macmapregulatory":
                 normalized['hsc'] = hs_codes_str
             else:
+                # Keep as hscodes for macmaptariff, trademap, etc.
                 normalized['hscodes'] = hs_codes_str
             
-            del normalized['hsCodes']
+            # Only delete the original key if it's different from the target
+            if hs_codes_key in normalized and hs_codes_key != 'hscodes':
+                del normalized[hs_codes_key]
         
         # Convert countries array to comma-separated string
         if 'countries' in normalized and isinstance(normalized['countries'], list):
             normalized['countries'] = ','.join(normalized['countries'])
+        
+        # For eximpedia, rename countries to country (singular)
+        if payload_type == "eximpedia" and 'countries' in normalized:
+            normalized['country'] = normalized['countries']
+            del normalized['countries']
+        
+        # For trademap, keep importing/exporting countries separate for proper combinations
+        if payload_type == "trademap":
+            if 'exporting_countries' in normalized and 'importing_countries' in normalized:
+                # Convert to comma-separated strings for payload creator
+                exp = normalized['exporting_countries'] if isinstance(normalized['exporting_countries'], list) else [normalized['exporting_countries']]
+                imp = normalized['importing_countries'] if isinstance(normalized['importing_countries'], list) else [normalized['importing_countries']]
+                normalized['country1'] = ','.join(exp)  # Exporting countries
+                normalized['country2'] = ','.join(imp)  # Importing countries
+                del normalized['exporting_countries']
+                del normalized['importing_countries']
+            
+            # Pass through new trademap options (time_series_types, view_types, values_types)
+            # These are already in the correct format from the frontend
+        
+        # For macmaptariff, keep importing/exporting countries separate for proper combinations
+        if payload_type == "macmaptariff":
+            if 'exporting_countries' in normalized and 'importing_countries' in normalized:
+                # Convert to comma-separated strings for payload creator
+                exp = normalized['exporting_countries'] if isinstance(normalized['exporting_countries'], list) else [normalized['exporting_countries']]
+                imp = normalized['importing_countries'] if isinstance(normalized['importing_countries'], list) else [normalized['importing_countries']]
+                normalized['country1'] = ','.join(imp)  # Importing countries (reporter)
+                normalized['country2'] = ','.join(exp)  # Exporting countries (partner)
+                del normalized['exporting_countries']
+                del normalized['importing_countries']
         
         # Convert importingCountry/exportingCountry arrays to comma-separated strings
         if 'importingCountry' in normalized:
@@ -299,11 +339,16 @@ class PayloadService:
         
         # Validate required fields based on payload type
         for field in required_fields:
-            if field not in normalized_config or not normalized_config[field]:
+            if field not in normalized_config:
                 logger.error(f"Missing required field '{field}' for {payload_type}. Normalized config: {normalized_config}")
                 return False, f"Field '{field}' is required for {payload_type}", {}
+            # Check if field is empty (but allow False for booleans)
+            value = normalized_config[field]
+            if value is None or (isinstance(value, str) and not value.strip()) or (isinstance(value, list) and len(value) == 0):
+                logger.error(f"Required field '{field}' is empty for {payload_type}. Normalized config: {normalized_config}")
+                return False, f"Field '{field}' is required for {payload_type}", {}
         
-        # Type-specific validations
+        # Type-specific validations (beyond required field checks)
         validation_result = (True, "Configuration is valid")
         
         if payload_type == "comparemarket":
@@ -314,10 +359,14 @@ class PayloadService:
             validation_result = self._validate_eximpedia(normalized_config)
         elif payload_type == "macmapproduct":
             validation_result = self._validate_macmapproduct(normalized_config)
-        elif payload_type in ["fulltariff", "macmapregulatory", "macmaptariff", "traderemedies", "trademap"]:
-            validation_result = self._validate_simple_fields(normalized_config)
+        # For trademap, skip additional validation - required fields already checked above
+        # This allows optional fields like email, password, booleans, lists to pass through
+        elif payload_type == "trademap":
+            validation_result = (True, "Configuration is valid")
+        elif payload_type in ["fulltariff", "macmapregulatory", "macmaptariff", "traderemedies"]:
+            validation_result = self._validate_simple_fields(normalized_config, required_fields)
         elif payload_type == "indiantradeportal":
-            validation_result = self._validate_simple_fields(normalized_config)
+            validation_result = self._validate_simple_fields(normalized_config, required_fields)
         
         # Return validation result with normalized config
         return validation_result[0], validation_result[1], normalized_config
@@ -385,11 +434,29 @@ class PayloadService:
         
         return True, "Configuration is valid"
     
-    def _validate_simple_fields(self, config: Dict[str, Any]) -> Tuple[bool, str]:
+    def _validate_simple_fields(self, config: Dict[str, Any], required_fields: List[str] = None) -> Tuple[bool, str]:
         """Validate simple field configs (most payload types)"""
-        # Basic validation - just check that values are provided
-        for field, value in config.items():
-            if not value or (isinstance(value, str) and not value.strip()):
+        # If required_fields provided, only validate those fields
+        # Otherwise validate all fields (old behavior)
+        fields_to_check = required_fields if required_fields else config.keys()
+        
+        for field in fields_to_check:
+            if field not in config:
+                continue
+                
+            value = config[field]
+            
+            # Skip boolean fields - False is a valid value
+            if isinstance(value, bool):
+                continue
+            # Skip list fields - empty lists are handled elsewhere
+            if isinstance(value, list):
+                continue
+            # Check string fields
+            if isinstance(value, str) and not value.strip():
+                return False, f"Field '{field}' cannot be empty"
+            # Check None values (but not False)
+            if value is None:
                 return False, f"Field '{field}' cannot be empty"
         
         return True, "Configuration is valid"
@@ -421,8 +488,13 @@ class PayloadService:
     def _run_payload_script(self, payload_type: str, script_path: Path, config: Dict[str, Any]) -> Dict[str, Any]:
         """Run the payload generation script with the given configuration"""
         try:
+            # For macmaptariff and trademap, create tasks directly instead of using script
+            if payload_type == "macmaptariff":
+                return self._create_macmap_tasks_directly(config)
+            elif payload_type == "trademap":
+                return self._create_trademap_tasks_directly(config)
             # Use programmatic mode for macmapregulatory, indiantradeportal, and eximpedia
-            if payload_type in ["macmapregulatory", "indiantradeportal", "eximpedia"]:
+            elif payload_type in ["macmapregulatory", "indiantradeportal", "eximpedia"]:
                 return self._run_programmatic_script(script_path, config)
             # Prepare script input based on payload type
             elif payload_type == "comparemarket":
@@ -773,11 +845,254 @@ class PayloadService:
                 "error": result.stderr
             }
     
-    def _parse_csv_field(self, field_value: str) -> List[str]:
-        """Parse comma-separated field value"""
-        if isinstance(field_value, str):
-            return [item.strip() for item in field_value.split(",") if item.strip()]
-        return field_value if isinstance(field_value, list) else [str(field_value)]
+    def _create_trademap_tasks_directly(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Create TradeMap tasks directly in MongoDB without using script"""
+        import itertools
+        from datetime import datetime
+        from shared.task_creator_utils.mongodb_base import get_database
+        
+        try:
+            # Get country1 and country2 from normalized config (exporting and importing)
+            country1_val = config.get('country1', '')
+            if isinstance(country1_val, str):
+                country1_list = [c.strip() for c in country1_val.split(',') if c.strip()]
+            else:
+                country1_list = country1_val if country1_val else []
+            
+            country2_val = config.get('country2', '')
+            if isinstance(country2_val, str):
+                country2_list = [c.strip() for c in country2_val.split(',') if c.strip()]
+            else:
+                country2_list = country2_val if country2_val else []
+            
+            hscodes = config.get('hscodes', '')
+            if isinstance(hscodes, str):
+                hscodes_list = [h.strip() for h in hscodes.split(',') if h.strip()]
+            else:
+                hscodes_list = hscodes if hscodes else []
+            
+            # Get new scraping options
+            time_series_types = config.get('time_series_types', ['yearly', 'quarterly', 'monthly'])
+            view_types = config.get('view_types', ['by_country', 'by_product'])
+            values_types = config.get('values_types', ['values'])
+            
+            # Handle "all" options
+            all_hs_codes = config.get('all_hs_codes', False)
+            all_exporting = config.get('all_exporting', False)
+            all_importing = config.get('all_importing', False)
+            
+            # Load all countries from static/countries.json for expansion
+            all_countries_list = []
+            try:
+                countries_file = Path(__file__).parent.parent / "static" / "countries.json"
+                if countries_file.exists():
+                    with open(countries_file, 'r', encoding='utf-8') as f:
+                        countries_data = json.load(f)
+                        all_countries_list = [c['Name'] for c in countries_data if c.get('Name')]
+                    logger.info(f"Loaded {len(all_countries_list)} countries for expansion")
+            except Exception as e:
+                logger.warning(f"Failed to load countries for expansion: {e}")
+            
+            # If "all" is selected, expand to individual countries (not 'all' marker)
+            if all_hs_codes or (hscodes_list and hscodes_list[0].lower() == 'all'):
+                hscodes_list = ['all']  # HS codes still use 'all' marker
+            
+            # Expand exporting countries if all_exporting is True
+            if all_exporting or (country1_list and country1_list[0].lower() == 'all'):
+                if all_countries_list:
+                    country1_list = all_countries_list
+                    logger.info(f"Expanded all_exporting to {len(country1_list)} individual countries")
+                else:
+                    country1_list = ['all']  # Fallback if countries couldn't be loaded
+            
+            # Expand importing countries if all_importing is True
+            if all_importing or (country2_list and country2_list[0].lower() == 'all'):
+                if all_countries_list:
+                    country2_list = all_countries_list
+                    logger.info(f"Expanded all_importing to {len(country2_list)} individual countries")
+                else:
+                    country2_list = ['all']  # Fallback if countries couldn't be loaded
+            
+            # Create combinations: ONLY hscodes × country1 (exporting) × country2 (importing)
+            # Pass time_series_types, view_types, values_types as LISTS to each task
+            combinations = list(itertools.product(hscodes_list, country1_list, country2_list))
+            # Insert tasks directly into MongoDB
+            db = get_database()
+            collection = db['scraper_tasks']
+            
+            tasks_to_insert = []
+            # Track if we expanded countries (so we set flags to False for individual tasks)
+            expanded_exporting = all_exporting and all_countries_list
+            expanded_importing = all_importing and all_countries_list
+            
+            for hscode, c1, c2 in combinations:
+                task = {
+                    'scraper': 'trademap',
+                    'status': 'pending',
+                    'payload': {
+                        'hscode': hscode,
+                        'country1': c1,
+                        'country2': c2,
+                        'time_series_list': time_series_types,
+                        'view_type_list': view_types,
+                        'value_type_list': values_types,
+                        'all_hs_codes': all_hs_codes,
+                        # Set to False if we expanded to individual countries
+                        'all_exporting': False if expanded_exporting else all_exporting,
+                        'all_importing': False if expanded_importing else all_importing
+                    },
+                    'created_at': datetime.now(),
+                    'updated_at': datetime.now()
+                }
+                tasks_to_insert.append(task)
+            
+            if tasks_to_insert:
+                try:
+                    result = collection.insert_many(tasks_to_insert, ordered=False)
+                    inserted_count = len(result.inserted_ids)
+                    logger.info(f"✅ Created {inserted_count} TradeMap tasks directly in MongoDB")
+                    return {
+                        "success": True,
+                        "message": "Payload generation completed successfully",
+                        "count": inserted_count,
+                        "tasksCreated": inserted_count
+                    }
+                except Exception as insert_error:
+                    if 'duplicate key error' in str(insert_error).lower():
+                        logger.warning(f"Some duplicate tasks skipped")
+                        inserted_count = len(tasks_to_insert)
+                        return {
+                            "success": True,
+                            "message": "Payload generation completed",
+                            "count": inserted_count,
+                            "tasksCreated": inserted_count
+                        }
+                    else:
+                        raise insert_error
+            else:
+                return {
+                    "success": False,
+                    "message": "No tasks to create"
+                }
+                
+        except Exception as e:
+            logger.error(f"Error creating TradeMap tasks directly: {e}")
+            return {
+                "success": False,
+                "message": f"Error: {str(e)}"
+            }
+    
+    def _create_macmap_tasks_directly(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Create MacMap tariff tasks directly in MongoDB without using script"""
+        import itertools
+        from datetime import datetime
+        from shared.task_creator_utils.mongodb_base import get_database
+        
+        try:
+            # Get country1 and country2 from normalized config (importing and exporting)
+            country1_val = config.get('country1', '')
+            if isinstance(country1_val, str):
+                country1_list = [c.strip() for c in country1_val.split(',') if c.strip()]
+            else:
+                country1_list = country1_val if country1_val else []
+            
+            country2_val = config.get('country2', '')
+            if isinstance(country2_val, str):
+                country2_list = [c.strip() for c in country2_val.split(',') if c.strip()]
+            else:
+                country2_list = country2_val if country2_val else []
+            
+            hscodes = config.get('hscodes', '')
+            if isinstance(hscodes, str):
+                hscodes_list = [h.strip() for h in hscodes.split(',') if h.strip()]
+            else:
+                hscodes_list = hscodes if hscodes else []
+            
+            year = config.get('year', 2025)
+            if not isinstance(year, list):
+                year = [year]
+            
+            # Create cartesian product: country1 (importing) x country2 (exporting) x hscodes x year
+            combinations = list(itertools.product(country1_list, country2_list, hscodes_list, year))
+            
+            # Insert tasks directly into MongoDB
+            db = get_database()
+            collection = db['scraper_tasks']
+            
+            tasks_to_insert = []
+            for country1, country2, hsc, yr in combinations:
+                task = {
+                    'scraper': 'MacMapTariff',
+                    'status': 'pending',
+                    'payload': {
+                        'country1': country1,
+                        'country2': country2,
+                        'hsc': hsc,
+                        'year': str(yr)
+                    },
+                    'created_at': datetime.now(),
+                    'updated_at': datetime.now()
+                }
+                tasks_to_insert.append(task)
+            
+            if tasks_to_insert:
+                # Use insert_many with ordered=False to continue on duplicates
+                try:
+                    result = collection.insert_many(tasks_to_insert, ordered=False)
+                    inserted_count = len(result.inserted_ids)
+                    logger.info(f"✅ Created {inserted_count} MacMap tasks directly in MongoDB")
+                except Exception as insert_error:
+                    # Handle duplicate key errors gracefully
+                    if 'duplicate key error' in str(insert_error).lower():
+                        # Count how many were actually inserted before the error
+                        error_str = str(insert_error)
+                        if 'nInserted' in error_str:
+                            import re
+                            match = re.search(r"'nInserted': (\d+)", error_str)
+                            inserted_count = int(match.group(1)) if match else 0
+                        else:
+                            inserted_count = 0
+                        
+                        duplicate_count = len(tasks_to_insert) - inserted_count
+                        logger.warning(f"⚠️ {duplicate_count} duplicate tasks skipped, {inserted_count} new tasks created")
+                        
+                        return {
+                            "success": True,
+                            "message": f"Payload generation completed. {inserted_count} new tasks created, {duplicate_count} duplicates skipped",
+                            "count": inserted_count,
+                            "tasksCreated": inserted_count,
+                            "duplicates_skipped": duplicate_count
+                        }
+                    else:
+                        raise insert_error
+                
+                return {
+                    "success": True,
+                    "message": "Payload generation completed successfully",
+                    "count": inserted_count,
+                    "tasksCreated": inserted_count
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": "No tasks to create"
+                }
+                
+        except Exception as e:
+            logger.error(f"Error creating MacMap tasks directly: {e}")
+            return {
+                "success": False,
+                "message": f"Error: {str(e)}"
+            }
+    
+    def _parse_csv_field(self, value: Any) -> List[str]:
+        """Parse CSV field value into list"""
+        if isinstance(value, list):
+            return value
+        elif isinstance(value, str):
+            return [item.strip() for item in value.split(',') if item.strip()]
+        else:
+            return [str(value)] if isinstance(value, list) else [str(value)]
     
     def get_payload_statistics(self) -> Dict[str, Any]:
         """Get comprehensive payload statistics from all databases"""

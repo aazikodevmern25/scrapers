@@ -14,8 +14,8 @@ from pymongo import MongoClient, ASCENDING, DESCENDING
 from pymongo.errors import DuplicateKeyError
 
 # MongoDB connection settings from environment
-MONGO_URI = os.environ.get('MONGO_URI', 'mongodb://admin:password@localhost:27017/?authSource=admin')
-MONGO_DB = os.environ.get('MONGO_DB', 'jaimish_data')
+MONGO_URI = os.environ.get('MONGO_URI', 'mongodb://202.47.115.6:27017/')
+MONGO_DB = os.environ.get('MONGO_DB', 'Dhruval')
 
 # Global connection pool
 _mongo_client = None

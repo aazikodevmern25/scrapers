@@ -1,0 +1,89 @@
+====================================================================
+QUICK START - ALL SCRAPERS WITH AUTO NGROK URL
+====================================================================
+Updated: $(date)
+
+PORT CONFIGURATION:
+  ✅ FastAPI runs on PORT 8001 (Port 8000 avoided - used by Cloudflare)
+  ✅ Ngrok tunnels PORT 8001 to public URL
+  ✅ All 3 scrapers (Eximpedia, TradeMap, MacMap) share same backend
+
+====================================================================
+OPTION 1: START ALL SCRAPERS NOW
+====================================================================
+
+Run this command:
+  bash /home/aaziko/scrapers/start_all_scrapers.sh
+
+This will:
+  • Start FastAPI on port 8001
+  • Generate new ngrok URL
+  • Start all workers (Eximpedia, TradeMap, MacMap)
+  • Save URLs to CURRENT_NGROK_URL.txt
+
+====================================================================
+OPTION 2: RESTART WHEN NGROK URL EXPIRES
+====================================================================
+
+When your ngrok URL expires (server restart), run:
+  bash /home/aaziko/scrapers/restart_all_services.sh
+
+This will:
+  • Kill old FastAPI and ngrok
+  • Start new instances with fresh ngrok URL
+  • Keep workers running (no downtime)
+  • Update all URL files with new ngrok URL
+
+====================================================================
+OPTION 3: AUTO-START ON SERVER REBOOT
+====================================================================
+
+Setup once (add to crontab):
+  crontab -e
+
+Add this line:
+  @reboot /home/aaziko/scrapers/auto_start_on_reboot.sh
+
+Save and exit. Now everything auto-starts on reboot with new URL!
+
+====================================================================
+WHERE TO FIND YOUR URLS
+====================================================================
+
+After starting, check these files:
+  • CURRENT_NGROK_URL.txt     (All scrapers)
+  • EXIMPEDIA_NGROK_URL.txt   (Eximpedia only)
+  • TRADEMAP_NGROK_URL.txt    (TradeMap only)
+  • MACMAP_NGROK_URL.txt      (MacMap only)
+
+Example URLs:
+  Eximpedia: {URL}/eximpedia-form
+  TradeMap: {URL}/trademap-form
+  MacMap: {URL}/static/macmap_tariff_form.html
+
+====================================================================
+IMPORTANT NOTES
+====================================================================
+
+✅ Port 8001 is used (8000 is reserved for Cloudflare)
+✅ New ngrok URL generated automatically on each restart
+✅ All 3 scrapers share the same backend and ngrok URL
+✅ Workers keep running when you restart FastAPI/ngrok
+✅ Check CURRENT_NGROK_URL.txt for latest URLs
+
+====================================================================
+TROUBLESHOOTING
+====================================================================
+
+Check services:
+  curl http://localhost:8001/api/v1/health  # FastAPI
+  curl http://localhost:4040/api/tunnels    # Ngrok
+
+Check workers:
+  ps aux | grep celery | grep -v grep
+
+View logs:
+  tail -f logs/fastapi.log
+  tail -f logs/ngrok.log
+
+====================================================================

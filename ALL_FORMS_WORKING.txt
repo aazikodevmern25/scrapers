@@ -1,0 +1,58 @@
+═══════════════════════════════════════════════════════════════
+ALL SCRAPER FORMS - AUTO-SCRAPING ENABLED
+Updated: Jan 7, 2026 at 1:57 PM
+═══════════════════════════════════════════════════════════════
+
+✅ ALL 3 SCRAPERS NOW HAVE AUTOMATIC SCRAPING
+
+When you submit any form:
+1. Form creates tasks in MongoDB
+2. Form automatically calls /api/v1/tasks/create
+3. Tasks execute in background threads
+4. Data saves to MongoDB automatically
+
+═══════════════════════════════════════════════════════════════
+
+📋 WORKING FORM URLS:
+
+1. EXIMPEDIA FORM:
+   https://daa6ad6ff7ff.ngrok-free.app/eximpedia-form
+   
+   Auto-scrapes to: MongoDB.Dhruval.eximpedia
+   Status: ⚠️ API quota exceeded for today (will work tomorrow)
+
+2. TRADEMAP FORM:
+   https://daa6ad6ff7ff.ngrok-free.app/trademap-form
+   
+   Auto-scrapes to: MongoDB collection (trademap)
+   Status: ✅ Ready to use
+
+3. MACMAP TARIFF FORM:
+   https://daa6ad6ff7ff.ngrok-free.app/static/macmap_tariff_form.html
+   
+   Auto-scrapes to: MongoDB collection (macmap_tariff)
+   Status: ✅ Ready to use
+
+═══════════════════════════════════════════════════════════════
+
+🔧 TECHNICAL DETAILS:
+
+FastAPI Port: 8001 (avoiding Coolify on 8000)
+Ngrok URL: https://daa6ad6ff7ff.ngrok-free.app
+Auto-processing: Background threads (Celery workers not consuming queue)
+
+All forms call /api/v1/tasks/create after payload generation
+Tasks execute immediately in background threads
+No manual intervention needed
+
+═══════════════════════════════════════════════════════════════
+
+✅ COMPLETE WORKFLOW FOR ALL SCRAPERS:
+
+1. Open form URL
+2. Fill in parameters (HS codes, countries, dates, etc.)
+3. Click "Generate Payload"
+4. Tasks created AND automatically scraped
+5. Data appears in MongoDB within seconds/minutes
+
+═══════════════════════════════════════════════════════════════

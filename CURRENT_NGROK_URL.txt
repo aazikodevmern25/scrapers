@@ -1,20 +1,27 @@
 ====================================================================
-CURRENT NGROK URL (Updated: Wed Jan  7 07:55:47 AM UTC 2026)
+CURRENT NGROK URL (Updated: Mon Jan 26 06:42:50 AM UTC 2026)
 ====================================================================
 
-Base URL: https://b4236288aeaf.ngrok-free.app
+Base URL: https://93e860195337.ngrok-free.app
+Port: 8001 (FastAPI)
 
-Forms:
-  • TradeMap Form: https://b4236288aeaf.ngrok-free.app/trademap-form
-  • MacMap Tariff Form: https://b4236288aeaf.ngrok-free.app/static/macmap_tariff_form.html
+EXIMPEDIA:
+  • Form: https://93e860195337.ngrok-free.app/eximpedia-form
+  • Mirror Data: https://93e860195337.ngrok-free.app/eximpedia-mirror-data-form
+
+TRADEMAP:
+  • Form: https://93e860195337.ngrok-free.app/trademap-form
+
+MACMAP:
+  • Tariff Form: https://93e860195337.ngrok-free.app/static/macmap_tariff_form.html
+  • Trade Agreements: https://93e860195337.ngrok-free.app/static/macmap_trade_agreements_form.html
 
 API:
-  • API Docs: https://b4236288aeaf.ngrok-free.app/docs
-  • Health Check: https://b4236288aeaf.ngrok-free.app/api/v1/health
+  • Docs: https://93e860195337.ngrok-free.app/docs
+  • Health Check: https://93e860195337.ngrok-free.app/api/v1/health
 
 ====================================================================
 Services Status:
-  ✅ FastAPI: Running on localhost:8000
+  ✅ FastAPI: Running on localhost:8001
   ✅ Ngrok: Tunneling to public URL
-  ✅ Workers: Continue running (not affected by restart)
 ====================================================================

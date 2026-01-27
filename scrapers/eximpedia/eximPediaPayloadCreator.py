@@ -61,11 +61,11 @@ class EximPediaPayloadCreator(BasePayloadCreator):
                         except:
                             continue
                     
-                    # If still not parsed, try manual parsing (D/M/YYYY format)
+                    # If still not parsed, try manual parsing (M/D/YYYY format)
                     if start_date is None:
                         parts = start_date_str.split('/')
                         if len(parts) == 3:
-                            start_date = datetime(int(parts[2]), int(parts[1]), int(parts[0]))
+                            start_date = datetime(int(parts[2]), int(parts[0]), int(parts[1]))
                     
                     # Parse end date
                     for fmt in ['%m/%d/%Y', '%-m/%-d/%Y', '%d/%m/%Y', '%-d/%-m/%Y']:
@@ -75,30 +75,43 @@ class EximPediaPayloadCreator(BasePayloadCreator):
                         except:
                             continue
                     
-                    # If still not parsed, try manual parsing (D/M/YYYY format)
+                    # If still not parsed, try manual parsing (M/D/YYYY format)
                     if end_date is None:
                         parts = end_date_str.split('/')
                         if len(parts) == 3:
-                            end_date = datetime(int(parts[2]), int(parts[1]), int(parts[0]))
+                            end_date = datetime(int(parts[2]), int(parts[0]), int(parts[1]))
                     
                     if start_date is None or end_date is None:
                         raise ValueError(f"Could not parse dates: {start_date_str}, {end_date_str}")
                     
                     print(f"🔍 DEBUG: Parsed dates - start: {start_date}, end: {end_date}")
                     
-                    # Generate 15-day chunks
+                    # Get chunk_days from params, default to 90
+                    chunk_days = int(params.get('chunk_days', [90])[0]) if isinstance(params.get('chunk_days'), list) else int(params.get('chunk_days', 90))
+                    print(f"🔍 DEBUG: Using chunk size: {chunk_days} days")
+                    
+                    # Generate chunks based on user-specified chunk_days
                     current_start = start_date
                     chunk_count = 0
                     while current_start <= end_date:
-                        # Calculate chunk end (15 days from start, or end_date if sooner)
-                        chunk_end = min(current_start + timedelta(days=14), end_date)
+                        # Calculate remaining days
+                        remaining_days = (end_date - current_start).days + 1
+                        
+                        # Always use end_date for last chunk to avoid tiny chunks
+                        # Use chunk_days for intermediate chunks
+                        if remaining_days <= chunk_days:
+                            chunk_end = end_date
+                        else:
+                            # chunk_days-1 because we include both start and end dates
+                            chunk_end = current_start + timedelta(days=chunk_days-1)
                         
                         # Format dates with leading zeros: MM/DD/YYYY (required by scraper)
                         start_formatted = current_start.strftime('%m/%d/%Y')
                         end_formatted = chunk_end.strftime('%m/%d/%Y')
                         
+                        actual_days = (chunk_end - current_start).days + 1
                         chunk_count += 1
-                        print(f"🔍 DEBUG: Chunk {chunk_count}: {start_formatted} to {end_formatted}")
+                        print(f"📅 Chunk {chunk_count}: {start_formatted} to {end_formatted} ({actual_days} days)")
                         
                         # Add as a paired tuple
                         chunked_date_pairs.append((start_formatted, end_formatted))
@@ -106,7 +119,7 @@ class EximPediaPayloadCreator(BasePayloadCreator):
                         # Move to next chunk (start from day after chunk_end)
                         current_start = chunk_end + timedelta(days=1)
                     
-                    print(f"🔍 DEBUG: Total chunks created: {chunk_count}")
+                    print(f"✅ {chunk_count} chunks created using {chunk_days}-day chunks")
                         
                 except Exception as e:
                     print(f"⚠️  Error parsing dates {start_date_str} to {end_date_str}: {e}")
@@ -121,11 +134,15 @@ class EximPediaPayloadCreator(BasePayloadCreator):
         else:
             chunked_date_pairs = []
         
-        # Ensure all other fields are lists
+        # Ensure all other fields are lists (except email and password which are single values)
         for field in self.unique_fields:
-            if field not in ['start_date', 'end_date'] and field in params:
+            if field not in ['start_date', 'end_date', 'email', 'password'] and field in params:
                 if not isinstance(params[field], list):
                     params[field] = [params[field]]
+        
+        # Store email and password separately (they're not list fields)
+        email = params.pop('email', 'aazikodevmern25@gmail.com')
+        password = params.pop('password', 'Aaziko@123')
         
         # Call parent method with modified logic
         start_time = time.time()
@@ -167,6 +184,8 @@ class EximPediaPayloadCreator(BasePayloadCreator):
                     payload[field] = non_date_combo[i]
                 payload['start_date'] = start_date
                 payload['end_date'] = end_date
+                payload['email'] = email
+                payload['password'] = password
                 
                 payloads_batch.append(payload)
                 processed_count += 1
@@ -235,18 +254,22 @@ if __name__ == "__main__":
             # Prepare params from config - dates are already in correct format
             params = {}
             
-            # Handle hscodes
-            if 'hscodes' in config:
-                hscodes = config['hscodes']
-                params['hscode'] = hscodes if isinstance(hscodes, list) else [hscodes]
+            # Handle hscodes - support both 'hscode' and 'hscodes', split comma-separated
+            hscodes_raw = config.get('hscode') or config.get('hscodes')
+            if hscodes_raw:
+                if isinstance(hscodes_raw, str):
+                    # Split comma-separated HS codes into individual items
+                    params['hscode'] = [h.strip() for h in hscodes_raw.split(',')]
+                elif isinstance(hscodes_raw, list):
+                    params['hscode'] = hscodes_raw
             
-            # Handle countries
-            if 'countries' in config:
-                countries = config['countries']
-                if isinstance(countries, str):
-                    params['country'] = [c.strip() for c in countries.split(',')]
+            # Handle countries - support both 'country' and 'countries', split comma-separated
+            countries_raw = config.get('country') or config.get('countries')
+            if countries_raw:
+                if isinstance(countries_raw, str):
+                    params['country'] = [c.strip() for c in countries_raw.split(',')]
                 else:
-                    params['country'] = countries
+                    params['country'] = countries_raw
             
             # Handle mode
             if 'mode' in config:
@@ -258,6 +281,16 @@ if __name__ == "__main__":
             
             if 'end_date' in config:
                 params['end_date'] = [config['end_date']] if isinstance(config['end_date'], str) else config['end_date']
+            
+            # Handle chunk_days - pass user's specified chunk size
+            if 'chunk_days' in config:
+                params['chunk_days'] = config['chunk_days']
+            
+            # Handle email and password
+            if 'email' in config:
+                params['email'] = config['email']
+            if 'password' in config:
+                params['password'] = config['password']
             
             print(f"🔍 DEBUG: Prepared params: {params}")
             

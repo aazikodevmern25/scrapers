@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eximpedia Mirror Data</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 700px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .header-icon {
+            font-size: 32px;
+            margin-right: 15px;
+        }
+
+        h1 {
+            color: #1e3c72;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="password"],
+        input[type="date"],
+        select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        input[type="password"]:focus,
+        input[type="date"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #2a5298;
+            box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.1);
+        }
+
+        select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 20px;
+            padding-right: 40px;
+        }
+
+        .example {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .info-note {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 12px;
+            margin-bottom: 25px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #1565c0;
+        }
+
+        .warning-note {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 12px;
+            margin-bottom: 25px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #e65100;
+        }
+
+        .date-row {
+            display: flex;
+            gap: 15px;
+        }
+
+        .date-row .form-group {
+            flex: 1;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(30, 60, 114, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .response {
+            margin-top: 25px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .response.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .response.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .task-info {
+            margin-top: 10px;
+            font-size: 13px;
+        }
+
+        .task-info div {
+            margin-bottom: 5px;
+        }
+
+        .country-select-container {
+            position: relative;
+        }
+
+        .select-all-btn {
+            position: absolute;
+            right: 50px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #2a5298;
+            color: white;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        .select-all-btn:hover {
+            background: #1e3c72;
+        }
+
+        #country {
+            height: 200px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            margin-bottom: 0;
+            cursor: pointer;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            text-decoration: none;
+            color: #333;
+        }
+
+        .nav-tab:hover {
+            border-color: #2a5298;
+            color: #2a5298;
+        }
+
+        .nav-tab.active {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            border-color: #1e3c72;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <span class="header-icon">🔄</span>
+            <div>
+                <h1>Mirror Data</h1>
+                <p class="subtitle">Search and scrape mirror trade data from Eximpedia</p>
+            </div>
+        </div>
+
+        <div class="nav-tabs">
+            <a href="/eximpedia-form" class="nav-tab">📦 Standard Search</a>
+            <a href="/eximpedia-mirror-data-form" class="nav-tab active">🔄 Mirror Data</a>
+        </div>
+
+        <div class="info-note">
+            <strong>📝 Mirror Data:</strong> Search global trade records by HS Code, Product Description, Consignee/Shipper names, etc. Results will be scraped (up to 1000 records) and saved to database. Excel reports will be downloaded automatically.
+        </div>
+
+        <form id="mirrorDataForm">
+            <div class="form-group">
+                <label for="search_type">Search Type</label>
+                <select id="search_type" name="search_type" required>
+                    <option value="">Select search type</option>
+                    <option value="HS_CODE">HS CODE</option>
+                    <option value="PRODUCT_DESCRIPTION_EN">PRODUCT DESCRIPTION EN</option>
+                    <option value="CONSIGNEE_NAME_EN">CONSIGNEE NAME EN</option>
+                    <option value="SHIPPER_NAME_EN">SHIPPER NAME EN</option>
+                    <option value="PRODUCT_DESCRIPTION_NATIVE">PRODUCT DESCRIPTION NATIVE</option>
+                    <option value="HS_CODE_DESCRIPTION">HS CODE DESCRIPTION</option>
+                    <option value="CONSIGNEE_CODE">CONSIGNEE CODE</option>
+                    <option value="CONSIGNEE_NAME_NATIVE">CONSIGNEE NAME NATIVE</option>
+                    <option value="SHIPPER_CODE">SHIPPER CODE</option>
+                    <option value="SHIPPER_NAME_NATIVE">SHIPPER NAME NATIVE</option>
+                </select>
+                <div class="example">Select the field type to search by</div>
+            </div>
+
+            <div class="form-group">
+                <label for="search_value">Search Value</label>
+                <input type="text" id="search_value" name="search_value" placeholder="Enter search value (e.g., 450310 for HS Code)" required>
+                <div class="example">Enter the value to search for based on selected search type</div>
+            </div>
+
+            <div class="date-row">
+                <div class="form-group">
+                    <label for="start_date">Start Date</label>
+                    <input type="date" id="start_date" name="start_date" required>
+                </div>
+                <div class="form-group">
+                    <label for="end_date">End Date</label>
+                    <input type="date" id="end_date" name="end_date" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="match_type">Match Type</label>
+                <select id="match_type" name="match_type">
+                    <option value="EXACT">EXACT</option>
+                    <option value="CONTAINS">CONTAINS</option>
+                </select>
+                <div class="example">EXACT: Exact match | CONTAINS: Partial match</div>
+            </div>
+
+            <div class="form-group">
+                <label>Countries (Select one or more)</label>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="select_all_countries" name="select_all_countries">
+                    <label for="select_all_countries"><strong>Select All Countries</strong></label>
+                </div>
+                <div id="country-checkboxes" style="max-height: 300px; overflow-y: auto; border: 2px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-top: 10px;">
+                    <!-- Countries will be populated dynamically as checkboxes -->
+                </div>
+                <div class="example" id="selected-count">0 countries selected</div>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Eximpedia Email</label>
+                <input type="email" id="email" name="email" value="Priyam@eximpedia.app" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Eximpedia Password</label>
+                <input type="password" id="password" name="password" value="Priyam@177" required>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="download_excel" name="download_excel" checked>
+                <label for="download_excel">Download Excel Report (saved to eximpedia_sheets folder)</label>
+            </div>
+
+            <button type="submit" id="submitBtn">
+                <span id="btnText">🔍 Search & Scrape Mirror Data</span>
+            </button>
+        </form>
+
+        <div id="response" class="response"></div>
+    </div>
+
+    <script>
+        // Import/Export country lists
+        const importCountries = [
+            "Argentina", "Bangladesh", "Bl_brazil", "Bolivia", "Botswana", "Burundi", "Cameroon",
+            "Chile", "China", "Colombia", "Costarica", "Ecuador", "Egypt", "Equador", "Ethiopia",
+            "Ghana", "India", "Indonesia", "Ivory_coast", "Kazakhstan", "Kenya", "Lesotho",
+            "Liberia", "Malaysia", "Mexico", "Moldova", "Myanmar", "Namibia", "Nigeria", "Pakistan",
+            "Panama", "Paraguay", "Peru", "Philippines", "Russia", "Rwanda", "Singapore", "South_sudan",
+            "Srilanka", "Tanzania", "Thailand", "Turkey", "Uganda", "Ukraine", "Usa", "Uzbekistan",
+            "Venezuela", "Vietnam", "Vietnam_2022", "Zimbabwe"
+        ];
+
+        // Populate countries as checkboxes
+        const countryCheckboxesContainer = document.getElementById('country-checkboxes');
+        const allCountries = [...new Set(importCountries)].sort();
+        
+        allCountries.forEach(country => {
+            const checkboxWrapper = document.createElement('div');
+            checkboxWrapper.style.marginBottom = '8px';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = `country_${country}`;
+            checkbox.name = 'country_checkbox';
+            checkbox.value = country;
+            checkbox.className = 'country-checkbox';
+            
+            const label = document.createElement('label');
+            label.htmlFor = `country_${country}`;
+            label.textContent = country.replace(/_/g, ' ');
+            label.style.marginLeft = '8px';
+            label.style.cursor = 'pointer';
+            
+            checkboxWrapper.appendChild(checkbox);
+            checkboxWrapper.appendChild(label);
+            countryCheckboxesContainer.appendChild(checkboxWrapper);
+            
+            // Update count on change
+            checkbox.addEventListener('change', updateSelectedCount);
+        });
+
+        // Select all countries checkbox
+        const selectAllCheckbox = document.getElementById('select_all_countries');
+        selectAllCheckbox.addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.country-checkbox');
+            checkboxes.forEach(cb => {
+                cb.checked = this.checked;
+            });
+            updateSelectedCount();
+        });
+
+        // Update selected count
+        function updateSelectedCount() {
+            const checkedBoxes = document.querySelectorAll('.country-checkbox:checked');
+            const count = checkedBoxes.length;
+            document.getElementById('selected-count').textContent = `${count} ${count === 1 ? 'country' : 'countries'} selected`;
+            
+            // Update "Select All" checkbox state
+            const allCheckboxes = document.querySelectorAll('.country-checkbox');
+            selectAllCheckbox.checked = checkedBoxes.length === allCheckboxes.length;
+        }
+
+        // Set default dates (last 30 days to today)
+        const today = new Date();
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        
+        document.getElementById('end_date').valueAsDate = today;
+        document.getElementById('start_date').valueAsDate = thirtyDaysAgo;
+
+        // Form submission
+        const form = document.getElementById('mirrorDataForm');
+        const responseDiv = document.getElementById('response');
+        const submitBtn = document.getElementById('submitBtn');
+        const btnText = document.getElementById('btnText');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Get form values
+            const searchType = document.getElementById('search_type').value;
+            const searchValue = document.getElementById('search_value').value.trim();
+            const startDate = document.getElementById('start_date').value;
+            const endDate = document.getElementById('end_date').value;
+            const matchType = document.getElementById('match_type').value;
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const downloadExcel = document.getElementById('download_excel').checked;
+            
+            // Get selected countries from checkboxes
+            const selectedCountries = Array.from(document.querySelectorAll('.country-checkbox:checked')).map(cb => cb.value);
+            
+            if (selectedCountries.length === 0) {
+                alert('Please select at least one country');
+                return;
+            }
+
+            // Convert dates to MM/DD/YYYY format
+            const startDateFormatted = formatDate(startDate);
+            const endDateFormatted = formatDate(endDate);
+
+            const config = {
+                search_type: searchType,
+                search_value: searchValue,
+                start_date: startDateFormatted,
+                end_date: endDateFormatted,
+                match_type: matchType,
+                countries: selectedCountries,
+                email: email,
+                password: password,
+                download_excel: downloadExcel,
+                max_records: 1000
+            };
+
+            // Disable form
+            submitBtn.disabled = true;
+            btnText.innerHTML = '<span class="spinner"></span>Searching Mirror Data...';
+            responseDiv.style.display = 'none';
+
+            try {
+                const apiBaseUrl = window.location.origin;
+                
+                const response = await fetch(`${apiBaseUrl}/api/v1/scrape/eximpedia-mirror-data`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
+                    },
+                    body: JSON.stringify(config)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    responseDiv.className = 'response success';
+                    responseDiv.innerHTML = `
+                        <strong>✅ Mirror Data Task Created Successfully!</strong>
+                        <div class="task-info">
+                            <div><strong>Task ID:</strong> ${data.task_id || 'N/A'}</div>
+                            <div><strong>Search Type:</strong> ${searchType.replace(/_/g, ' ')}</div>
+                            <div><strong>Search Value:</strong> ${searchValue}</div>
+                            <div><strong>Countries:</strong> ${selectedCountries.length} selected</div>
+                            <div><strong>Date Range:</strong> ${startDateFormatted} to ${endDateFormatted}</div>
+                            <div><strong>Max Records:</strong> 1000 per country</div>
+                            <div><strong>Excel Download:</strong> ${downloadExcel ? 'Yes (saved to eximpedia_sheets/)' : 'No'}</div>
+                            <div style="margin-top: 10px; padding: 10px; background: #e7f3ff; border-radius: 4px;">
+                                <strong>ℹ️ Processing:</strong>
+                                <ul style="margin-left: 20px; margin-top: 5px;">
+                                    <li>Data will be scraped from Eximpedia Mirror Data API</li>
+                                    <li>Up to 1000 records per country will be saved</li>
+                                    <li>Results saved to MongoDB (eximpedia_mirror_data collection)</li>
+                                    ${downloadExcel ? '<li>Excel reports will be saved to eximpedia_sheets/ folder</li>' : ''}
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(data.detail || data.message || 'Failed to create task');
+                }
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.innerHTML = `
+                    <strong>❌ Error</strong>
+                    <div>${error.message}</div>
+                `;
+            } finally {
+                responseDiv.style.display = 'block';
+                submitBtn.disabled = false;
+                btnText.textContent = '🔍 Search & Scrape Mirror Data';
+            }
+        });
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${month}/${day}/${year}`;
+        }
+    </script>
+</body>
+</html>

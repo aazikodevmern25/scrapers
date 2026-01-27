@@ -1,17 +1,17 @@
 ====================================================================
 EXIMPEDIA SCRAPER ACCESS INFORMATION
-Updated: Jan 7, 2026 at 10:48 AM
+Updated: Jan 7, 2026 at 12:58 PM
 🔑 ENCRYPTION KEY UPDATED - Ready for scraping!
 ====================================================================
 
 🌐 EXIMPEDIA FORM:
-   https://18c603a21112.ngrok-free.app/eximpedia-form
+   https://daa6ad6ff7ff.ngrok-free.app/eximpedia-form
 
 📊 API DOCUMENTATION:
-   https://18c603a21112.ngrok-free.app/docs
+   https://daa6ad6ff7ff.ngrok-free.app/docs
 
 💚 HEALTH CHECK:
-   https://18c603a21112.ngrok-free.app/api/v1/health
+   https://daa6ad6ff7ff.ngrok-free.app/api/v1/health
 
 🗄️  DATABASE:
    MongoDB: 202.47.115.6:27017
@@ -25,8 +25,8 @@ Updated: Jan 7, 2026 at 10:48 AM
    - Start Date (MM/DD/YYYY or YYYY)
    - End Date (MM/DD/YYYY or YYYY)
 
-👷 WORKERS STATUS:
-   ✅ Task Creator: 1 worker (running)
-   ✅ Scrapers: 4 workers × 2 concurrency = 8 concurrent tasks
+ WORKERS STATUS:
+   Task CreatPort: 8001 (avoiding Coolify on 8000)1 worker (running)
+   Scrapers: 4 workers × 2 concurrency = 8 concurrent tasks
 
 ====================================================================

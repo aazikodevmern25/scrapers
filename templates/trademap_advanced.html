@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradeMap Advanced Scraper</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg { background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 50%, #db2777 100%); }
+        .card-shadow { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+        .checkbox-pill { transition: all 0.2s ease; }
+        .checkbox-pill:has(input:checked) { background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white; }
+        .checkbox-pill:hover { transform: translateY(-1px); }
+        .pulse-dot { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .progress-animate { animation: progress-flow 2s linear infinite; background-size: 200% 100%; }
+        @keyframes progress-flow { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen py-8 px-4">
+    <div class="max-w-4xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-white mb-2">TradeMap Advanced Scraper</h1>
+            <p class="text-purple-200">Scrape all time series, views, and value types with full control</p>
+        </div>
+
+        <!-- Main Card -->
+        <div class="bg-white rounded-3xl card-shadow p-8">
+            <form id="scrapeForm">
+                <!-- HS Code Input -->
+                <div class="mb-8">
+                    <label class="block text-gray-700 font-bold text-lg mb-3">HS Codes</label>
+                    <textarea id="hscodes" name="hscodes" rows="3"
+                           class="w-full px-5 py-4 text-lg border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition"
+                           placeholder="Enter HS Codes (one per line or comma-separated)&#10;e.g., 380300&#10;690100&#10;081350"></textarea>
+                    <p class="text-gray-500 text-sm mt-2">
+                        <strong>Single HS code:</strong> One record with all combinations stored<br>
+                        <strong>Multiple HS codes:</strong> Creates separate task for each HS code (one task = one HS code)
+                    </p>
+                    <div id="hsCodeCount" class="text-purple-600 font-semibold mt-2 hidden">
+                        <span id="hsCount">0</span> HS codes entered → <span id="taskCount">0</span> tasks will be created
+                    </div>
+                </div>
+
+                <!-- Time Series Section -->
+                <div class="mb-8">
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-gray-700 font-bold text-lg">Time Series Types</label>
+                        <button type="button" onclick="toggleAll('timeSeries')" class="text-purple-600 text-sm hover:underline">Toggle All</button>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <label class="checkbox-pill flex items-center p-4 bg-gray-50 rounded-xl cursor-pointer border-2 border-transparent hover:border-purple-200">
+                            <input type="checkbox" name="timeSeries" value="yearly" checked class="w-5 h-5 text-purple-600 rounded mr-3">
+                            <div>
+                                <span class="font-semibold">Yearly</span>
+                                <p class="text-xs text-gray-500">Annual data</p>
+                            </div>
+                        </label>
+                        <label class="checkbox-pill flex items-center p-4 bg-gray-50 rounded-xl cursor-pointer border-2 border-transparent hover:border-purple-200">
+                            <input type="checkbox" name="timeSeries" value="quarterly" checked class="w-5 h-5 text-purple-600 rounded mr-3">
+                            <div>
+                                <span class="font-semibold">Quarterly</span>
+                                <p class="text-xs text-gray-500">Q1-Q4 data</p>
+                            </div>
+                        </label>
+                        <label class="checkbox-pill flex items-center p-4 bg-gray-50 rounded-xl cursor-pointer border-2 border-transparent hover:border-purple-200">
+                            <input type="checkbox" name="timeSeries" value="monthly" checked class="w-5 h-5 text-purple-600 rounded mr-3">
+                            <div>
+                                <span class="font-semibold">Monthly</span>
+                                <p class="text-xs text-gray-500">Month by month</p>
+                            </div>
+                        </label>
+                        <label class="checkbox-pill flex items-center p-4 bg-gray-50 rounded-xl cursor-pointer border-2 border-transparent hover:border-purple-200">
+                            <input type="checkbox" name="timeSeries" value="trade_indicators" checked class="w-5 h-5 text-purple-600 rounded mr-3">
+                            <div>
+                                <span class="font-semibold">Indicators</span>
+                                <p class="text-xs text-gray-500">Trade metrics</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- View Types Section -->
+                <div class="mb-8">
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-gray-700 font-bold text-lg">View Types</label>
+                        <button type="button" onclick="toggleAll('viewType')" class="text-purple-600 text-sm hover:underline">Toggle All</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="checkbox-pill flex items-center p-4 bg-gray-50 rounded-xl cursor-pointer border-2 border-transparent hover:border-purple-200">
+                            <input type="checkbox" name="viewType" value="by_country" checked class="w-5 h-5 text-purple-600 rounded mr-3">
+                            <div>
+                                <span class="font-semibold">By Country</span>
+                                <p class="text-xs text-gray-500">Data grouped by trading partners</p>
+                            </div>
+                        </label>
+                        <label class="checkbox-pill flex items-center p-4 bg-gray-50 rounded-xl cursor-pointer border-2 border-transparent hover:border-purple-200">
+                            <input type="checkbox" name="viewType" value="by_product" checked class="w-5 h-5 text-purple-600 rounded mr-3">
+                            <div>
+                                <span class="font-semibold">By Product</span>
+                                <p class="text-xs text-gray-500">Data grouped by product codes</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Value Types Section -->
+                <div class="mb-8">
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="text-gray-700 font-bold text-lg">Value Types (9 metrics)</label>
+                        <button type="button" onclick="toggleAll('valuesType')" class="text-purple-600 text-sm hover:underline">Toggle All</button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3">
+                        <label class="checkbox-pill flex items-center p-3 bg-gray-50 rounded-xl cursor-pointer border-2 border-transparent hover:border-purple-200">
+                            <input type="checkbox" name="valuesType" value="values" checked class="w-4 h-4 text-purple-600 rounded mr-2">
+                            <span class="font-medium text-sm">Values</span>
+                        </label>
+                        <label class="checkbox-pill flex items-center p-3 bg-gray-50 rounded-xl cursor-pointer border-2 border-transparent hover:border-purple-200">
+                            <input type="checkbox" name="valuesType" value="quantities" checked class="w-4 h-4 text-purple-600 rounded mr-2">
+                            <span class="font-medium text-sm">Quantities</span>
+                        </label>
+                        <label class="checkbox-pill flex items-center p-3 bg-gray-50 rounded-xl cursor-pointer border-2 border-transparent hover:border-purple-200">
+                            <input type="checkbox" name="valuesType" value="growth_value" checked class="w-4 h-4 text-purple-600 rounded mr-2">
+                            <span class="font-medium text-sm">Growth in Value</span>
+                        </label>
+                        <label class="checkbox-pill flex items-center p-3 bg-gray-50 rounded-xl cursor-pointer border-2 border-transparent hover:border-purple-200">
+                            <input type="checkbox" name="valuesType" value="growth_quantity" checked class="w-4 h-4 text-purple-600 rounded mr-2">
+                            <span class="font-medium text-sm">Growth in Quantity</span>
+                        </label>
+                        <label class="checkbox-pill flex items-center p-3 bg-gray-50 rounded-xl cursor-pointer border-2 border-transparent hover:border-purple-200">
+                            <input type="checkbox" name="valuesType" value="share_value" checked class="w-4 h-4 text-purple-600 rounded mr-2">
+                            <span class="font-medium text-sm">Share in Value %</span>
+                        </label>
+                        <label class="checkbox-pill flex items-center p-3 bg-gray-50 rounded-xl cursor-pointer border-2 border-transparent hover:border-purple-200">
+                            <input type="checkbox" name="valuesType" value="unit_values" checked class="w-4 h-4 text-purple-600 rounded mr-2">
+                            <span class="font-medium text-sm">Unit Values</span>
+                        </label>
+                        <label class="checkbox-pill flex items-center p-3 bg-gray-50 rounded-xl cursor-pointer border-2 border-transparent hover:border-purple-200">
+                            <input type="checkbox" name="valuesType" value="growth_unit_values" checked class="w-4 h-4 text-purple-600 rounded mr-2">
+                            <span class="font-medium text-sm">Growth Unit Values</span>
+                        </label>
+                        <label class="checkbox-pill flex items-center p-3 bg-gray-50 rounded-xl cursor-pointer border-2 border-transparent hover:border-purple-200">
+                            <input type="checkbox" name="valuesType" value="index_values" checked class="w-4 h-4 text-purple-600 rounded mr-2">
+                            <span class="font-medium text-sm">Index on Values</span>
+                        </label>
+                        <label class="checkbox-pill flex items-center p-3 bg-gray-50 rounded-xl cursor-pointer border-2 border-transparent hover:border-purple-200">
+                            <input type="checkbox" name="valuesType" value="index_unit_values" checked class="w-4 h-4 text-purple-600 rounded mr-2">
+                            <span class="font-medium text-sm">Index Unit Values</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Credentials -->
+                <div class="mb-8 p-6 bg-gray-50 rounded-2xl">
+                    <label class="text-gray-700 font-bold text-lg mb-4 block">TradeMap Credentials</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-gray-600 text-sm mb-1 block">Email</label>
+                            <input type="email" id="email" name="email" value="chhabinrai2017@gmail.com"
+                                   class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 transition">
+                        </div>
+                        <div>
+                            <label class="text-gray-600 text-sm mb-1 block">Password</label>
+                            <input type="password" id="password" name="password" value="Test@1234"
+                                   class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 transition">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Combination Counter -->
+                <div id="comboCounter" class="mb-6 p-4 bg-purple-50 rounded-xl text-center">
+                    <span class="text-purple-700 font-semibold">Total Combinations: </span>
+                    <span id="comboCount" class="text-2xl font-bold text-purple-600">144</span>
+                    <span class="text-purple-500 text-sm ml-2">(4 ts × 2 views × 9 values × 2 directions)</span>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" id="submitBtn"
+                        class="w-full py-4 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white font-bold text-lg rounded-xl hover:opacity-90 transition transform hover:scale-[1.02] active:scale-[0.98]">
+                    <span id="btnText">Start Scraping All Data</span>
+                </button>
+            </form>
+
+            <!-- Status Panel -->
+            <div id="statusPanel" class="mt-6 hidden">
+                <div id="statusContent" class="p-6 rounded-2xl"></div>
+            </div>
+        </div>
+
+        <!-- Info Cards -->
+        <div class="grid grid-cols-3 gap-4 mt-8">
+            <div class="bg-white/20 backdrop-blur rounded-2xl p-4 text-center">
+                <div class="text-3xl font-bold text-white">4</div>
+                <div class="text-purple-200 text-sm">Time Series</div>
+            </div>
+            <div class="bg-white/20 backdrop-blur rounded-2xl p-4 text-center">
+                <div class="text-3xl font-bold text-white">2</div>
+                <div class="text-purple-200 text-sm">View Types</div>
+            </div>
+            <div class="bg-white/20 backdrop-blur rounded-2xl p-4 text-center">
+                <div class="text-3xl font-bold text-white">9</div>
+                <div class="text-purple-200 text-sm">Value Types</div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-8 text-purple-200 text-sm">
+            <p>Data will be stored in MongoDB • All combinations scraped automatically</p>
+            <p class="mt-2">
+                <a href="/trademap-direct" class="underline hover:text-white">Simple Form</a> |
+                <a href="/trademap" class="underline hover:text-white">Original Form</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function getCheckedValues(name) {
+            return Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map(cb => cb.value);
+        }
+
+        function toggleAll(name) {
+            const cbs = document.querySelectorAll(`input[name="${name}"]`);
+            const allChecked = Array.from(cbs).every(cb => cb.checked);
+            cbs.forEach(cb => cb.checked = !allChecked);
+            updateComboCount();
+        }
+
+        function parseHSCodes(text) {
+            // Split by newlines, commas, or spaces and filter empty
+            return text.split(/[\n,\s]+/).map(s => s.trim()).filter(s => s && /^\d+$/.test(s));
+        }
+
+        function updateHSCodeCount() {
+            const hscodes = parseHSCodes(document.getElementById('hscodes').value);
+            const countDiv = document.getElementById('hsCodeCount');
+            const hsCountSpan = document.getElementById('hsCount');
+            const taskCountSpan = document.getElementById('taskCount');
+            
+            if (hscodes.length > 1) {
+                countDiv.classList.remove('hidden');
+                hsCountSpan.textContent = hscodes.length;
+                taskCountSpan.textContent = hscodes.length;
+            } else {
+                countDiv.classList.add('hidden');
+            }
+        }
+
+        function updateComboCount() {
+            const ts = getCheckedValues('timeSeries').length;
+            const views = getCheckedValues('viewType').length;
+            const vals = getCheckedValues('valuesType').length;
+            const total = ts * views * vals * 2;
+            document.getElementById('comboCount').textContent = total;
+        }
+
+        // Update combo count on checkbox change
+        document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            cb.addEventListener('change', updateComboCount);
+        });
+
+        // Update HS code count on input
+        document.getElementById('hscodes').addEventListener('input', updateHSCodeCount);
+
+        const form = document.getElementById('scrapeForm');
+        const statusPanel = document.getElementById('statusPanel');
+        const statusContent = document.getElementById('statusContent');
+        const submitBtn = document.getElementById('submitBtn');
+        const btnText = document.getElementById('btnText');
+        const apiBase = window.location.origin;
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const hscodes = parseHSCodes(document.getElementById('hscodes').value);
+            const timeSeries = getCheckedValues('timeSeries');
+            const viewTypes = getCheckedValues('viewType');
+            const valuesTypes = getCheckedValues('valuesType');
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (hscodes.length === 0) { alert('Please enter at least one HS code'); return; }
+            if (timeSeries.length === 0) { alert('Select at least one Time Series Type'); return; }
+            if (viewTypes.length === 0) { alert('Select at least one View Type'); return; }
+            if (valuesTypes.length === 0) { alert('Select at least one Values Type'); return; }
+
+            const combosPerHS = timeSeries.length * viewTypes.length * valuesTypes.length * 2;
+
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-50');
+            btnText.innerHTML = `<svg class="animate-spin inline w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Creating ${hscodes.length} task(s)...`;
+
+            try {
+                // Step 1: Generate payloads (same as trademap_form - instant)
+                const payloadResp = await fetch(`${apiBase}/api/v1/payload/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+                    body: JSON.stringify({
+                        payload_type: 'trademap',
+                        config: {
+                            hscodes: hscodes.join(','),
+                            exporting_countries: ['World'],
+                            importing_countries: ['World'],
+                            time_series_types: timeSeries,
+                            view_types: viewTypes,
+                            values_types: valuesTypes,
+                            email: email,
+                            password: password,
+                            all_hs_codes: false,
+                            all_exporting: false,
+                            all_importing: false
+                        }
+                    })
+                });
+                const payloadData = await payloadResp.json();
+                if (!payloadResp.ok || !payloadData.success) {
+                    throw new Error(payloadData.message || 'Failed to generate payloads');
+                }
+
+                // Step 2: Queue tasks via Celery (same as trademap_form - instant)
+                btnText.innerHTML = `<svg class="animate-spin inline w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Queuing Tasks...`;
+                
+                const taskResp = await fetch(`${apiBase}/api/v1/tasks/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+                    body: JSON.stringify({ scraper_id: 'trademap' })
+                });
+                const taskData = await taskResp.json();
+
+                // Show success
+                statusPanel.classList.remove('hidden');
+                statusContent.className = 'p-6 rounded-2xl bg-green-50 border-2 border-green-200';
+                statusContent.innerHTML = `
+                    <div class="flex items-center mb-4">
+                        <svg class="w-6 h-6 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <span class="font-bold text-green-700 text-lg">Tasks Created Successfully!</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 text-sm mb-4">
+                        <div><span class="text-gray-500">Payloads Created:</span> <span class="font-semibold">${payloadData.tasksCreated || 'N/A'}</span></div>
+                        <div><span class="text-gray-500">Tasks Queued:</span> <span class="font-semibold">${taskData.tasks_queued || 'Processing...'}</span></div>
+                        <div><span class="text-gray-500">HS Codes:</span> <span class="font-semibold">${hscodes.join(', ')}</span></div>
+                        <div><span class="text-gray-500">Combos per HS:</span> <span class="font-semibold">${combosPerHS}</span></div>
+                        <div><span class="text-gray-500">Time Series:</span> <span class="font-semibold">${timeSeries.join(', ')}</span></div>
+                        <div><span class="text-gray-500">View Types:</span> <span class="font-semibold">${viewTypes.join(', ')}</span></div>
+                        <div><span class="text-gray-500">Value Types:</span> <span class="font-semibold">${valuesTypes.join(', ')}</span></div>
+                        <div><span class="text-gray-500">Credentials:</span> <span class="font-semibold">${email}</span></div>
+                    </div>
+                    <div class="text-sm text-gray-600 bg-white p-3 rounded-lg">
+                        All tasks are queued and running in background via Celery workers.
+                        Each task will scrape <strong>${timeSeries.length}</strong> time series &times; 
+                        <strong>${viewTypes.length}</strong> views &times; <strong>${valuesTypes.length}</strong> values &times; 
+                        2 directions = <strong>${combosPerHS}</strong> combinations and save to MongoDB.
+                    </div>
+                `;
+
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-50');
+                btnText.textContent = 'Start Scraping All Data';
+
+            } catch (error) {
+                statusPanel.classList.remove('hidden');
+                statusContent.className = 'p-6 rounded-2xl bg-red-50 border-2 border-red-200';
+                statusContent.innerHTML = `
+                    <div class="flex items-center mb-2">
+                        <svg class="w-6 h-6 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span class="font-bold text-red-700">Error</span>
+                    </div>
+                    <div class="text-red-600">${error.message}</div>
+                `;
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-50');
+                btnText.textContent = 'Start Scraping All Data';
+            }
+        });
+
+        // Initial combo count
+        updateComboCount();
+    </script>
+</body>
+</html>

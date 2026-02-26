@@ -222,6 +222,22 @@ class TradeMapBulkRequest(BaseModel):
     all_exporting: bool = Field(False, description="Scrape all exporting countries")
     all_importing: bool = Field(False, description="Scrape all importing countries")
 
+class TradeMapDirectRequest(BaseModel):
+    hscode: str = Field(..., description="HS code to scrape")
+    time_series_types: List[str] = Field(['yearly'], description="Time series types")
+    view_types: List[str] = Field(['by_country'], description="View types")
+    values_types: List[str] = Field(['values'], description="Value types")
+    email: Optional[str] = Field(None, description="TradeMap login email")
+    password: Optional[str] = Field(None, description="TradeMap login password")
+
+class TradeMapBatchDirectRequest(BaseModel):
+    hscodes: List[str] = Field(..., description="List of HS codes to scrape (one task per HS code)")
+    time_series_types: List[str] = Field(['yearly'], description="Time series types")
+    view_types: List[str] = Field(['by_country'], description="View types")
+    values_types: List[str] = Field(['values'], description="Value types")
+    email: Optional[str] = Field(None, description="TradeMap login email")
+    password: Optional[str] = Field(None, description="TradeMap login password")
+
 class EximpediaRequest(BaseModel):
     start_date: str = Field(..., description="Start date in MM/DD/YYYY format")
     end_date: str = Field(..., description="End date in MM/DD/YYYY format")
@@ -340,6 +356,14 @@ async def api_info():
 @app.get("/trademap-form")
 async def trademap_form(request: Request):
     return templates.TemplateResponse("trademap_form.html", {"request": request})
+
+@app.get("/trademap-direct")
+async def trademap_direct_form(request: Request):
+    return templates.TemplateResponse("trademap_direct.html", {"request": request})
+
+@app.get("/trademap-advanced")
+async def trademap_advanced_form(request: Request):
+    return templates.TemplateResponse("trademap_advanced.html", {"request": request})
 
 @app.get("/eximpedia-form")
 async def eximpedia_form(request: Request):
@@ -858,6 +882,155 @@ async def scrape_trademap_bulk_api(request: TradeMapBulkRequest):
     except Exception as e:
         logger.error(f"Error queueing TradeMap bulk tasks: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# In-memory store for direct scrape job status
+_direct_scrape_jobs = {}
+
+def _run_direct_scrape(job_id, hscode, time_series_types, view_types, values_types, email, password):
+    """Background function to run TradeMap scraper directly (not via Celery)."""
+    import sys, os
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from scrapers.trademap.trademap import ScrapeTrademap
+    
+    _direct_scrape_jobs[job_id]['status'] = 'running'
+    _direct_scrape_jobs[job_id]['started_at'] = datetime.now().isoformat()
+    try:
+        ScrapeTrademap(
+            hscode=hscode,
+            country1='all',
+            country2='all',
+            time_series_list=time_series_types,
+            view_type_list=view_types,
+            value_type_list=values_types,
+            email=email,
+            password=password
+        )
+        _direct_scrape_jobs[job_id]['status'] = 'completed'
+        _direct_scrape_jobs[job_id]['completed_at'] = datetime.now().isoformat()
+        combos = len(time_series_types) * len(view_types) * len(values_types) * 2
+        _direct_scrape_jobs[job_id]['message'] = f'Successfully scraped {combos} combinations (Import+Export) for HS {hscode}'
+    except Exception as e:
+        _direct_scrape_jobs[job_id]['status'] = 'failed'
+        _direct_scrape_jobs[job_id]['error'] = str(e)
+        _direct_scrape_jobs[job_id]['completed_at'] = datetime.now().isoformat()
+        logger.error(f"Direct scrape job {job_id} failed: {e}")
+
+@app.post("/api/v1/scrape/trademap/direct")
+async def scrape_trademap_direct(request: TradeMapDirectRequest, background_tasks: BackgroundTasks):
+    """Run TradeMap scraper directly in background. Returns a job_id to poll for status."""
+    import uuid, threading
+    job_id = str(uuid.uuid4())[:8]
+    
+    combos = len(request.time_series_types) * len(request.view_types) * len(request.values_types) * 2
+    _direct_scrape_jobs[job_id] = {
+        'status': 'queued',
+        'hscode': request.hscode,
+        'combinations': combos,
+        'time_series_types': request.time_series_types,
+        'view_types': request.view_types,
+        'values_types': request.values_types,
+        'created_at': datetime.now().isoformat(),
+        'message': f'Scraping {combos} combinations for HS {request.hscode}...'
+    }
+    
+    thread = threading.Thread(
+        target=_run_direct_scrape,
+        args=(job_id, request.hscode, request.time_series_types, request.view_types, 
+              request.values_types, request.email, request.password),
+        daemon=True
+    )
+    thread.start()
+    
+    return {
+        "status": "started",
+        "job_id": job_id,
+        "combinations": combos,
+        "message": f"Scraping started for HS {request.hscode} with {combos} combinations (Import+Export)"
+    }
+
+@app.get("/api/v1/scrape/trademap/direct/status/{job_id}")
+async def get_trademap_direct_status(job_id: str):
+    """Check status of a direct TradeMap scrape job."""
+    job = _direct_scrape_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+    return job
+
+@app.post("/api/v1/scrape/trademap/direct/batch")
+async def scrape_trademap_direct_batch(request: TradeMapBatchDirectRequest):
+    """Create separate tasks for multiple HS codes. One task per HS code, each with all combinations."""
+    import uuid, threading
+    
+    if not request.hscodes:
+        raise HTTPException(status_code=400, detail="No HS codes provided")
+    
+    combos_per_hs = len(request.time_series_types) * len(request.view_types) * len(request.values_types) * 2
+    jobs = []
+    
+    for hscode in request.hscodes:
+        hscode = hscode.strip()
+        if not hscode:
+            continue
+            
+        job_id = str(uuid.uuid4())[:8]
+        _direct_scrape_jobs[job_id] = {
+            'status': 'queued',
+            'hscode': hscode,
+            'combinations': combos_per_hs,
+            'time_series_types': request.time_series_types,
+            'view_types': request.view_types,
+            'values_types': request.values_types,
+            'created_at': datetime.now().isoformat(),
+            'message': f'Queued: Scraping {combos_per_hs} combinations for HS {hscode}...'
+        }
+        
+        thread = threading.Thread(
+            target=_run_direct_scrape,
+            args=(job_id, hscode, request.time_series_types, request.view_types,
+                  request.values_types, request.email, request.password),
+            daemon=True
+        )
+        thread.start()
+        
+        jobs.append({
+            'job_id': job_id,
+            'hscode': hscode,
+            'combinations': combos_per_hs
+        })
+    
+    return {
+        "status": "started",
+        "total_hscodes": len(jobs),
+        "combinations_per_hs": combos_per_hs,
+        "total_combinations": combos_per_hs * len(jobs),
+        "jobs": jobs,
+        "message": f"Created {len(jobs)} tasks for {len(jobs)} HS codes"
+    }
+
+@app.get("/api/v1/scrape/trademap/direct/batch/status")
+async def get_trademap_batch_status(job_ids: str = Query(..., description="Comma-separated job IDs")):
+    """Check status of multiple jobs at once."""
+    ids = [jid.strip() for jid in job_ids.split(',') if jid.strip()]
+    results = {}
+    for jid in ids:
+        job = _direct_scrape_jobs.get(jid)
+        if job:
+            results[jid] = job
+        else:
+            results[jid] = {'status': 'not_found'}
+    
+    # Summary stats
+    statuses = [j.get('status', 'unknown') for j in results.values()]
+    return {
+        'jobs': results,
+        'summary': {
+            'total': len(ids),
+            'completed': statuses.count('completed'),
+            'running': statuses.count('running'),
+            'queued': statuses.count('queued'),
+            'failed': statuses.count('failed')
+        }
+    }
 
 @app.post("/api/v1/scrape/eximpedia", response_model=TaskResponse)
 async def scrape_eximpedia_api(request: EximpediaRequest):
@@ -2805,7 +2978,7 @@ async def generate_payload(request: PayloadGenerationRequest):
                     logger.info(f"🚀 Auto-triggering workers for {scraper_id}...")
                     
                     response = requests.post(
-                        'http://localhost:1080/api/v1/tasks/create',
+                        'http://localhost:8000/api/v1/tasks/create',
                         json={'scraper_id': scraper_id},
                         timeout=10  # Increased timeout
                     )
@@ -3056,7 +3229,7 @@ async def create_tasks_from_payloads(request: Dict[str, Any] = Body(...)):
                         {'$set': {'status': 'processing'}}
                     )
                     
-                    # Execute directly with correct parameters including new options
+                    # Execute directly with correct parameters including new options and credentials
                     result = trademap_scraper_task(
                         hscode=payload.get('hscode'),
                         country1=payload.get('country1'),
@@ -3066,7 +3239,9 @@ async def create_tasks_from_payloads(request: Dict[str, Any] = Body(...)):
                         value_type_list=payload.get('value_type_list', ['values']),
                         all_hs_codes=payload.get('all_hs_codes', False),
                         all_exporting=payload.get('all_exporting', False),
-                        all_importing=payload.get('all_importing', False)
+                        all_importing=payload.get('all_importing', False),
+                        email=payload.get('email'),
+                        password=payload.get('password')
                     )
                     
                     # Check if scraper actually succeeded
@@ -3094,30 +3269,48 @@ async def create_tasks_from_payloads(request: Dict[str, Any] = Body(...)):
                     )
                     return False
             
-            # Process with 10 parallel workers CONTINUOUSLY in background
-            def run_parallel_workers_continuous():
+            # Process with 1 worker SEQUENTIALLY with 5-minute timeout per task
+            def run_sequential_workers():
                 import time
+                from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+                
+                TASK_TIMEOUT = 600  # 10 minutes max per task
+                
                 while True:
-                    # Fetch pending tasks
-                    pending = list(collection.find({'scraper': 'trademap', 'status': 'pending'}).limit(100))
+                    # Fetch ONE pending task at a time
+                    pending = list(collection.find({'scraper': 'trademap', 'status': 'pending'}).limit(1))
                     if not pending:
                         logger.info("TradeMap: No more pending tasks, stopping workers")
                         break
                     
-                    logger.info(f"TradeMap: Processing batch of {len(pending)} tasks with 10 workers")
-                    with ThreadPoolExecutor(max_workers=10) as executor:
-                        futures = [executor.submit(process_trademap_task, task) for task in pending]
-                        # Wait for all to complete before fetching next batch
-                        for future in futures:
-                            try:
-                                future.result()
-                            except Exception as e:
-                                logger.error(f"TradeMap worker error: {e}")
+                    task = pending[0]
+                    task_id = task.get('_id')
+                    logger.info(f"TradeMap: Processing task {task_id} with {TASK_TIMEOUT}s timeout")
                     
-                    time.sleep(1)  # Small delay between batches
+                    # Run task with timeout
+                    with ThreadPoolExecutor(max_workers=1) as executor:
+                        future = executor.submit(process_trademap_task, task)
+                        try:
+                            future.result(timeout=TASK_TIMEOUT)
+                        except FuturesTimeoutError:
+                            logger.error(f"TradeMap task {task_id} TIMED OUT after {TASK_TIMEOUT}s - marking as failed")
+                            collection.update_one(
+                                {'_id': task_id},
+                                {'$set': {'status': 'failed', 'error': f'Task timed out after {TASK_TIMEOUT}s'}}
+                            )
+                            # Kill only headless/chromedriver Chrome processes (not user's browser)
+                            import subprocess
+                            # Only kill chromedriver and headless Chrome, not regular Chrome browser
+                            subprocess.run(['pkill', '-9', '-f', 'chromedriver'], capture_output=True)
+                            subprocess.run(['pkill', '-9', '-f', 'chrome.*--headless'], capture_output=True)
+                            subprocess.run(['pkill', '-9', '-f', 'chrome.*--remote-debugging'], capture_output=True)
+                        except Exception as e:
+                            logger.error(f"TradeMap worker error: {e}")
+                    
+                    time.sleep(2)  # Small delay between tasks
             
-            # Start continuous workers in background thread
-            worker_thread = threading.Thread(target=run_parallel_workers_continuous, daemon=True)
+            # Start sequential workers in background thread
+            worker_thread = threading.Thread(target=run_sequential_workers, daemon=True)
             worker_thread.start()
             queued_count = len(pending_tasks)
         
@@ -3134,6 +3327,89 @@ async def create_tasks_from_payloads(request: Dict[str, Any] = Body(...)):
             "success": False,
             "message": f"Failed to queue tasks: {str(e)}"
         }
+
+@app.post("/api/v1/tasks/reset")
+async def reset_failed_tasks(scraper_id: str = "trademap"):
+    """Reset failed and processing tasks to pending"""
+    try:
+        from shared.task_creator_utils.mongodb_base import get_database
+        db = get_database()
+        collection = db['scraper_tasks']
+        
+        # Count before reset
+        failed = collection.count_documents({'scraper': scraper_id, 'status': 'failed'})
+        processing = collection.count_documents({'scraper': scraper_id, 'status': 'processing'})
+        
+        # Reset failed and processing tasks to pending
+        result = collection.update_many(
+            {'scraper': scraper_id, 'status': {'$in': ['failed', 'processing']}},
+            {'$set': {'status': 'pending'}}
+        )
+        
+        pending = collection.count_documents({'scraper': scraper_id, 'status': 'pending'})
+        
+        return {
+            "success": True,
+            "message": f"Reset {result.modified_count} tasks to pending",
+            "reset_count": result.modified_count,
+            "failed_before": failed,
+            "processing_before": processing,
+            "pending_now": pending
+        }
+    except Exception as e:
+        logger.error(f"Error resetting tasks: {str(e)}")
+        return {"success": False, "message": str(e)}
+
+@app.delete("/api/v1/tasks/invalid")
+async def delete_invalid_tasks(scraper_id: str = "trademap"):
+    """Delete tasks with invalid 'World' country combinations that don't work on TradeMap"""
+    try:
+        from shared.task_creator_utils.mongodb_base import get_database
+        db = get_database()
+        collection = db['scraper_tasks']
+        
+        # Delete tasks where both countries are 'World' - these don't work on TradeMap
+        result = collection.delete_many({
+            'scraper': scraper_id,
+            '$or': [
+                {'payload.country1': 'World', 'payload.country2': 'World'},
+                {'payload.country1': {'$regex': '^World$', '$options': 'i'}},
+                {'payload.country2': {'$regex': '^World$', '$options': 'i'}}
+            ]
+        })
+        
+        remaining = collection.count_documents({'scraper': scraper_id})
+        
+        return {
+            "success": True,
+            "message": f"Deleted {result.deleted_count} invalid tasks",
+            "deleted_count": result.deleted_count,
+            "remaining_tasks": remaining
+        }
+    except Exception as e:
+        logger.error(f"Error deleting invalid tasks: {str(e)}")
+        return {"success": False, "message": str(e)}
+
+@app.delete("/api/v1/tasks/all")
+async def delete_all_tasks(scraper_id: str = "trademap"):
+    """Delete all tasks for a scraper to start fresh"""
+    try:
+        from shared.task_creator_utils.mongodb_base import get_database
+        db = get_database()
+        collection = db['scraper_tasks']
+        
+        count_before = collection.count_documents({'scraper': scraper_id})
+        result = collection.delete_many({'scraper': scraper_id})
+        
+        return {
+            "success": True,
+            "message": f"Deleted {result.deleted_count} tasks",
+            "deleted_count": result.deleted_count,
+            "count_before": count_before
+        }
+    except Exception as e:
+        logger.error(f"Error deleting all tasks: {str(e)}")
+        return {"success": False, "message": str(e)}
 
 @app.get("/api/v1/payload/stats")
 async def get_payload_stats():
@@ -4981,7 +5257,7 @@ async def startup_event():
         logger.info("Auto-start disabled for IndiaMART category crawler")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=1080)
         
         
 

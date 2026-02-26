@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradeMap Direct Scraper</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 700px;
+            width: 100%;
+            padding: 35px;
+        }
+        h1 { color: #333; margin-bottom: 8px; font-size: 26px; text-align: center; }
+        .subtitle { color: #666; margin-bottom: 25px; text-align: center; font-size: 13px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group > label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 700;
+            font-size: 15px;
+        }
+        .form-group .hint { font-size: 12px; color: #999; margin-top: 4px; }
+        input[type="text"], input[type="email"], input[type="password"] {
+            width: 100%;
+            padding: 11px 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
+        .form-row { display: flex; gap: 12px; }
+        .form-row .form-group { flex: 1; }
+
+        .section-title {
+            font-size: 15px; font-weight: 700; color: #333;
+            margin: 20px 0 12px; padding-bottom: 8px;
+            border-bottom: 2px solid #667eea;
+        }
+        .checkbox-grid {
+            display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;
+        }
+        .checkbox-grid label {
+            display: flex; align-items: center;
+            padding: 7px 14px;
+            background: #f5f5f5;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .checkbox-grid label:hover { background: #e8e8ff; }
+        .checkbox-grid input[type="checkbox"] {
+            width: 16px; height: 16px; margin-right: 6px;
+            accent-color: #667eea;
+        }
+        .checkbox-grid input[type="checkbox"]:checked + span {
+            color: #667eea; font-weight: 600;
+        }
+        .select-all-row {
+            display: flex; justify-content: flex-end; margin-bottom: 4px;
+        }
+        .select-all-btn {
+            font-size: 12px; color: #667eea; cursor: pointer;
+            border: none; background: none; text-decoration: underline;
+        }
+        button[type="submit"] {
+            width: 100%; padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; border: none; border-radius: 8px;
+            font-size: 16px; font-weight: 600; cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+        button[type="submit"]:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(102,126,234,0.4); }
+        button[type="submit"]:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+        .spinner {
+            display: inline-block; width: 16px; height: 16px;
+            border: 2px solid rgba(255,255,255,0.3); border-radius: 50%;
+            border-top-color: white; animation: spin 0.8s linear infinite;
+            margin-right: 8px; vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        #statusPanel {
+            margin-top: 20px; padding: 18px; border-radius: 10px;
+            display: none; font-size: 14px;
+        }
+        #statusPanel.running { background: #e3f2fd; border: 1px solid #90caf9; color: #1565c0; }
+        #statusPanel.completed { background: #e8f5e9; border: 1px solid #a5d6a7; color: #2e7d32; }
+        #statusPanel.failed { background: #fce4ec; border: 1px solid #ef9a9a; color: #c62828; }
+        .status-header { font-weight: 700; font-size: 16px; margin-bottom: 8px; }
+        .status-detail { font-size: 13px; margin: 3px 0; }
+        .status-detail strong { color: inherit; }
+        .progress-bar { width: 100%; height: 6px; background: #e0e0e0; border-radius: 3px; margin-top: 10px; overflow: hidden; }
+        .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 3px; transition: width 0.5s; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TradeMap Direct Scraper</h1>
+        <p class="subtitle">Enter HS code, select options, and scrape all combinations directly</p>
+
+        <form id="scrapeForm">
+            <div class="form-group">
+                <label for="hscode">HS Code</label>
+                <input type="text" id="hscode" name="hscode" placeholder="e.g., 690100" required>
+                <div class="hint">Enter a single HS code (e.g., 690100, 29211, 081350)</div>
+            </div>
+
+            <!-- Time Series Types -->
+            <div class="section-title">Time Series Types</div>
+            <div class="form-group">
+                <div class="select-all-row"><button type="button" class="select-all-btn" onclick="toggleAll('timeSeries')">Select / Deselect All</button></div>
+                <div class="checkbox-grid">
+                    <label><input type="checkbox" name="timeSeries" value="yearly" checked><span>Yearly time series</span></label>
+                    <label><input type="checkbox" name="timeSeries" value="quarterly"><span>Quarterly time series</span></label>
+                    <label><input type="checkbox" name="timeSeries" value="monthly"><span>Monthly time series</span></label>
+                    <label><input type="checkbox" name="timeSeries" value="trade_indicators"><span>Trade indicators</span></label>
+                </div>
+                <div class="hint">Select which time series data to scrape</div>
+            </div>
+
+            <!-- View Type -->
+            <div class="section-title">View Type</div>
+            <div class="form-group">
+                <div class="select-all-row"><button type="button" class="select-all-btn" onclick="toggleAll('viewType')">Select / Deselect All</button></div>
+                <div class="checkbox-grid">
+                    <label><input type="checkbox" name="viewType" value="by_country" checked><span>By Country</span></label>
+                    <label><input type="checkbox" name="viewType" value="by_product"><span>By Product</span></label>
+                    <label><input type="checkbox" name="viewType" value="by_service"><span>By Service</span></label>
+                </div>
+                <div class="hint">Select data view perspectives to scrape</div>
+            </div>
+
+            <!-- Values Type -->
+            <div class="section-title">Values Type</div>
+            <div class="form-group">
+                <div class="select-all-row"><button type="button" class="select-all-btn" onclick="toggleAll('valuesType')">Select / Deselect All</button></div>
+                <div class="checkbox-grid">
+                    <label><input type="checkbox" name="valuesType" value="values" checked><span>Values</span></label>
+                    <label><input type="checkbox" name="valuesType" value="quantities"><span>Quantities</span></label>
+                    <label><input type="checkbox" name="valuesType" value="growth_value"><span>Growth in value</span></label>
+                    <label><input type="checkbox" name="valuesType" value="growth_quantity"><span>Growth in quantity</span></label>
+                    <label><input type="checkbox" name="valuesType" value="share_value"><span>Share in value %</span></label>
+                    <label><input type="checkbox" name="valuesType" value="unit_values"><span>Unit values</span></label>
+                    <label><input type="checkbox" name="valuesType" value="growth_unit_values"><span>Growth on unit values</span></label>
+                    <label><input type="checkbox" name="valuesType" value="index_values"><span>Index on values</span></label>
+                    <label><input type="checkbox" name="valuesType" value="index_unit_values"><span>Index on unit values</span></label>
+                </div>
+                <div class="hint">Select which value metrics to scrape</div>
+            </div>
+
+            <!-- Credentials -->
+            <div class="section-title">TradeMap Credentials</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" value="chhabinrai2017@gmail.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" value="Test@1234" required>
+                </div>
+            </div>
+
+            <button type="submit" id="submitBtn">
+                <span id="btnText">Start Scraping</span>
+            </button>
+        </form>
+
+        <div id="statusPanel"></div>
+    </div>
+
+    <script>
+        function getCheckedValues(name) {
+            return Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map(cb => cb.value);
+        }
+
+        function toggleAll(name) {
+            const cbs = document.querySelectorAll(`input[name="${name}"]`);
+            const allChecked = Array.from(cbs).every(cb => cb.checked);
+            cbs.forEach(cb => cb.checked = !allChecked);
+        }
+
+        const form = document.getElementById('scrapeForm');
+        const statusPanel = document.getElementById('statusPanel');
+        const submitBtn = document.getElementById('submitBtn');
+        const btnText = document.getElementById('btnText');
+
+        let pollInterval = null;
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const hscode = document.getElementById('hscode').value.trim();
+            const timeSeries = getCheckedValues('timeSeries');
+            const viewTypes = getCheckedValues('viewType');
+            const valuesTypes = getCheckedValues('valuesType');
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (!hscode) { alert('Please enter an HS code'); return; }
+            if (timeSeries.length === 0) { alert('Select at least one Time Series Type'); return; }
+            if (viewTypes.length === 0) { alert('Select at least one View Type'); return; }
+            if (valuesTypes.length === 0) { alert('Select at least one Values Type'); return; }
+
+            const combos = timeSeries.length * viewTypes.length * valuesTypes.length * 2;
+
+            submitBtn.disabled = true;
+            btnText.innerHTML = `<span class="spinner"></span>Starting ${combos} combinations...`;
+            statusPanel.style.display = 'none';
+
+            try {
+                const resp = await fetch(`${window.location.origin}/api/v1/scrape/trademap/direct`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        hscode,
+                        time_series_types: timeSeries,
+                        view_types: viewTypes,
+                        values_types: valuesTypes,
+                        email, password
+                    })
+                });
+
+                const data = await resp.json();
+
+                if (!resp.ok) throw new Error(data.detail || 'Failed to start scraping');
+
+                const jobId = data.job_id;
+                statusPanel.className = 'running';
+                statusPanel.style.display = 'block';
+                statusPanel.innerHTML = `
+                    <div class="status-header">Scraping in progress...</div>
+                    <div class="status-detail"><strong>Job ID:</strong> ${jobId}</div>
+                    <div class="status-detail"><strong>HS Code:</strong> ${hscode}</div>
+                    <div class="status-detail"><strong>Combinations:</strong> ${combos} (Import + Export)</div>
+                    <div class="status-detail"><strong>Time Series:</strong> ${timeSeries.join(', ')}</div>
+                    <div class="status-detail"><strong>Views:</strong> ${viewTypes.join(', ')}</div>
+                    <div class="status-detail"><strong>Values:</strong> ${valuesTypes.join(', ')}</div>
+                    <div class="progress-bar"><div class="progress-bar-fill" style="width: 10%"></div></div>
+                `;
+
+                btnText.innerHTML = `<span class="spinner"></span>Scraping... (${combos} combos)`;
+
+                // Poll for status
+                let pollCount = 0;
+                pollInterval = setInterval(async () => {
+                    pollCount++;
+                    try {
+                        const sr = await fetch(`${window.location.origin}/api/v1/scrape/trademap/direct/status/${jobId}`);
+                        const sd = await sr.json();
+                        const progress = Math.min(10 + pollCount * 2, 95);
+                        
+                        if (sd.status === 'completed') {
+                            clearInterval(pollInterval);
+                            statusPanel.className = 'completed';
+                            statusPanel.innerHTML = `
+                                <div class="status-header">Scraping Completed!</div>
+                                <div class="status-detail"><strong>HS Code:</strong> ${hscode}</div>
+                                <div class="status-detail"><strong>Message:</strong> ${sd.message || 'All data saved to MongoDB'}</div>
+                                <div class="status-detail"><strong>Started:</strong> ${sd.started_at || ''}</div>
+                                <div class="status-detail"><strong>Completed:</strong> ${sd.completed_at || ''}</div>
+                                <div class="progress-bar"><div class="progress-bar-fill" style="width: 100%"></div></div>
+                            `;
+                            submitBtn.disabled = false;
+                            btnText.textContent = 'Start Scraping';
+                        } else if (sd.status === 'failed') {
+                            clearInterval(pollInterval);
+                            statusPanel.className = 'failed';
+                            statusPanel.innerHTML = `
+                                <div class="status-header">Scraping Failed</div>
+                                <div class="status-detail"><strong>Error:</strong> ${sd.error || 'Unknown error'}</div>
+                            `;
+                            submitBtn.disabled = false;
+                            btnText.textContent = 'Start Scraping';
+                        } else {
+                            statusPanel.querySelector('.progress-bar-fill').style.width = progress + '%';
+                        }
+                    } catch (err) {
+                        // Ignore polling errors
+                    }
+                }, 5000);
+
+            } catch (error) {
+                statusPanel.className = 'failed';
+                statusPanel.style.display = 'block';
+                statusPanel.innerHTML = `<div class="status-header">Error</div><div class="status-detail">${error.message}</div>`;
+                submitBtn.disabled = false;
+                btnText.textContent = 'Start Scraping';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -21,16 +21,25 @@ def parse_trademap_table_flexible(html_content):
     has_hs8_column = bool(selector.xpath('//th[contains(text(), "HS8")]'))
     
     header_spans = selector.xpath('//td[@align="center"]/span/text()').getall()
-    trade_descriptions = [header.strip() for header in header_spans]
+    trade_descriptions = [header.strip() for header in header_spans if header.strip()]
     
     years = []
-    year_links = selector.xpath('//th/a[contains(text(), "Value in")]/text()').getall()
+    # Match various header formats: "Value in 2024", "Quantity in 2024", "Growth in 2024", etc.
+    year_links = selector.xpath('//th//a/text()').getall()
     for link_text in year_links:
         match = re.search(r'(\d{4}(?:-(?:Q\d|M\d{1,2}))?)', link_text)
         if match:
             years.append(match.group(1))
     
     years = sorted(list(set(years)))
+    
+    # If trade_descriptions contain year patterns (e.g. '2006', '2024-Q1'), they are actually years
+    # This happens when indicator changes (Quantities, Growth, etc.) and headers shift format
+    if trade_descriptions and not years:
+        year_like = [td for td in trade_descriptions if re.match(r'^\d{4}(-(?:Q\d|M\d{1,2}))?$', td)]
+        if len(year_like) == len(trade_descriptions):
+            years = sorted(year_like)
+            trade_descriptions = []
     
     products = []
     data_rows = selector.xpath('//tr[@align="right"]')
@@ -45,8 +54,15 @@ def parse_trademap_table_flexible(html_content):
     if len(data_rows) == 0:
         logger.warning("parse_trademap_table_flexible: No data rows found in table - table may be empty or have different format")
     
+    if has_hs8_column:
+        fmt = "multi_product"
+    elif trade_descriptions:
+        fmt = "single_product"
+    else:
+        fmt = "country_timeseries"
+    
     return {
-        "format": "multi_product" if has_hs8_column else "single_product",
+        "format": fmt,
         "trade_descriptions": trade_descriptions,
         "years": years,
         "products": products
@@ -91,21 +107,34 @@ def parse_product_row_flexible(row, years, has_hs8_column, trade_descriptions):
         num_trades = len(trade_descriptions)
         
         trades_data = []
-        for trade_idx in range(num_trades):
-            start_idx = trade_idx * num_years
-            end_idx = start_idx + num_years
-            trade_values = data_values[start_idx:end_idx]
-            
-            # Create year-value mapping
+        if num_trades > 0:
+            for trade_idx in range(num_trades):
+                start_idx = trade_idx * num_years
+                end_idx = start_idx + num_years
+                trade_values = data_values[start_idx:end_idx]
+                
+                # Create year-value mapping
+                trade_data = {}
+                for year_idx, year in enumerate(years):
+                    if year_idx < len(trade_values):
+                        trade_data[year] = trade_values[year_idx]
+                    else:
+                        trade_data[year] = 0
+                
+                trades_data.append({
+                    "description": trade_descriptions[trade_idx] if trade_idx < len(trade_descriptions) else f"Trade {trade_idx + 1}",
+                    "data": trade_data
+                })
+        elif num_years > 0 and data_values:
+            # No trade descriptions (Country_SelProduct_TS format) - map values directly to years
             trade_data = {}
             for year_idx, year in enumerate(years):
-                if year_idx < len(trade_values):
-                    trade_data[year] = trade_values[year_idx]
+                if year_idx < len(data_values):
+                    trade_data[year] = data_values[year_idx]
                 else:
                     trade_data[year] = 0
-            
             trades_data.append({
-                "description": trade_descriptions[trade_idx] if trade_idx < len(trade_descriptions) else f"Trade {trade_idx + 1}",
+                "description": "Value",
                 "data": trade_data
             })
         

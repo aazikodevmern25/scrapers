@@ -65,7 +65,9 @@ def push_pending_tasks():
                         'value_type_list': payload.get('value_type_list'),
                         'all_hs_codes': payload.get('all_hs_codes', False),
                         'all_exporting': payload.get('all_exporting', False),
-                        'all_importing': payload.get('all_importing', False)
+                        'all_importing': payload.get('all_importing', False),
+                        'email': payload.get('email'),
+                        'password': payload.get('password')
                     },
                     queue='trademap'
                 )

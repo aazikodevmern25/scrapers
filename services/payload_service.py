@@ -913,9 +913,9 @@ class PayloadService:
                 else:
                     country2_list = ['all']  # Fallback if countries couldn't be loaded
             
-            # Create combinations: ONLY hscodes × country1 (exporting) × country2 (importing)
-            # Pass time_series_types, view_types, values_types as LISTS to each task
-            combinations = list(itertools.product(hscodes_list, country1_list, country2_list))
+            # Create combinations: hscodes × country1 × country2 × time_series × view_type
+            # Split by time_series AND view_type to create smaller tasks (18 combos each: 9 vals × 2 directions)
+            combinations = list(itertools.product(hscodes_list, country1_list, country2_list, time_series_types, view_types))
             # Insert tasks directly into MongoDB
             db = get_database()
             collection = db['scraper_tasks']
@@ -925,7 +925,11 @@ class PayloadService:
             expanded_exporting = all_exporting and all_countries_list
             expanded_importing = all_importing and all_countries_list
             
-            for hscode, c1, c2 in combinations:
+            # Get credentials from config
+            email = config.get('email', 'chhabinrai2017@gmail.com')
+            password = config.get('password', 'Test@1234')
+            
+            for hscode, c1, c2, ts, vt in combinations:
                 task = {
                     'scraper': 'trademap',
                     'status': 'pending',
@@ -933,13 +937,15 @@ class PayloadService:
                         'hscode': hscode,
                         'country1': c1,
                         'country2': c2,
-                        'time_series_list': time_series_types,
-                        'view_type_list': view_types,
+                        'time_series_list': [ts],  # Single time_series per task
+                        'view_type_list': [vt],    # Single view_type per task for faster completion
                         'value_type_list': values_types,
                         'all_hs_codes': all_hs_codes,
                         # Set to False if we expanded to individual countries
                         'all_exporting': False if expanded_exporting else all_exporting,
-                        'all_importing': False if expanded_importing else all_importing
+                        'all_importing': False if expanded_importing else all_importing,
+                        'email': email,
+                        'password': password
                     },
                     'created_at': datetime.now(),
                     'updated_at': datetime.now()

@@ -305,8 +305,8 @@ def scrape_indian_trade_portal(self, hscode):
         logger.error(f"Error scraping Indian Trade Portal: {str(exc)}")
         raise self.retry(exc=exc)
 
-@app.task(bind=True, autoretry_for=(Exception,), retry_kwargs={'max_retries': 2, 'countdown': 300})
-def trademap_scraper_task(self, hscode, country1, country2, time_series_list=None, view_type_list=None, value_type_list=None, all_hs_codes=False, all_exporting=False, all_importing=False):
+@app.task(bind=True, autoretry_for=(Exception,), retry_kwargs={'max_retries': 10, 'countdown': 60})
+def trademap_scraper_task(self, hscode, country1, country2, time_series_list=None, view_type_list=None, value_type_list=None, all_hs_codes=False, all_exporting=False, all_importing=False, email=None, password=None):
     """
     TradeMap scraper task with extended options.
     
@@ -314,13 +314,14 @@ def trademap_scraper_task(self, hscode, country1, country2, time_series_list=Non
         hscode: HS code to scrape (or 'all' for all products)
         country1: Exporting country (or 'all' for all countries)
         country2: Importing country (or 'all' for all countries)
-        time_series: One of 'yearly', 'quarterly', 'monthly', 'trade_indicators'
-        view_type: One of 'by_country', 'by_product', 'by_service'
-        value_type: One of 'values', 'quantities', 'growth_value', 'growth_quantity', 
-                    'share_value', 'unit_values', 'growth_unit_values', 'index_values', 'index_unit_values'
+        time_series_list: List of time series types
+        view_type_list: List of view types
+        value_type_list: List of value types
         all_hs_codes: If True, scrape all HS codes
         all_exporting: If True, scrape all exporting countries
         all_importing: If True, scrape all importing countries
+        email: TradeMap login email
+        password: TradeMap login password
     """
     try:
         # Check if task should be paused before execution
@@ -328,14 +329,21 @@ def trademap_scraper_task(self, hscode, country1, country2, time_series_list=Non
             logger.info(f"Task {self.request.id} is paused, skipping execution")
             raise TaskPausedException(f"Task {self.request.id} is paused")
         
+        # Default credentials
+        if not email:
+            email = 'chhabinrai2017@gmail.com'
+        if not password:
+            password = 'Test@1234'
+        
         logger.info(f"Starting TradeMap scrape: {hscode}, {country1} -> {country2}")
         logger.info(f"Options: time_series_list={time_series_list}, view_type_list={view_type_list}, value_type_list={value_type_list}")
         
-        # Call scraper with lists of parameters
+        # Call scraper with lists of parameters and credentials
         ScrapeTrademap(
             hscode, country1, country2,
             time_series_list, view_type_list, value_type_list,
-            all_hs_codes, all_exporting, all_importing
+            all_hs_codes, all_exporting, all_importing,
+            email=email, password=password
         )
         logger.info(f"Completed TradeMap scrape: {hscode}")
         return {
